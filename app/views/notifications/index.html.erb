@@ -1,0 +1,14 @@
+<%
+	add_body_class "notifications"
+	@page_title = "Notifications" 
+%>
+
+<h2 class="section">
+	<%= link_to "Notifications", notifications_path %>
+</h2>
+
+<% @notifications.each do |notification| %>
+	<p>
+		<%= render_notification notification %>
+	</p>
+<% end %>

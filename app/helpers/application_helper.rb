@@ -1,6 +1,8 @@
 # Methods added to this helper will be available to all templates in the application.
 module ApplicationHelper
 
+	include NotificationsHelper
+
 	def formatted_time(time, options={})
 		return "Never" unless time
 		if time > 14.days.ago

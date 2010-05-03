@@ -99,6 +99,8 @@ ActionController::Routing::Routes.draw do |map|
 		:collection => {:all => :get},
 		:member => {:accept => :get}
 	)
+	
+	map.resources :notifications
 
 	map.resource :admin, :member => {:configuration => :any}, :controller => 'admin'
 

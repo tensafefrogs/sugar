@@ -106,6 +106,8 @@ class ApplicationController < ActionController::Base
 				@section = :messages
 			when 'InvitesController'
 				@section = :invites
+			when 'NotificationsController'
+				@section = :notifications
 			else
 				@section = :discussions
 			end

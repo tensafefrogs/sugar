@@ -2,6 +2,8 @@ require 'digest/sha1'
 
 class PostsController < ApplicationController
 
+	include NotificationsHelper
+
 	requires_authentication :except => [:count]
 	requires_user           :except => [:count, :since, :search]
 	protect_from_forgery    :except => [:doodle]
@@ -85,11 +87,16 @@ class PostsController < ApplicationController
 				if @post.valid?
 					@discussion.reload
 					@discussion.fix_counter_cache!
-					# if @post.mentions_users?
-					# 	@post.mentioned_users.each do |mentioned_user|
-					# 		logger.info "Mentions: #{mentioned_user.username}"
-					# 	end
-					# end
+					if @post.mentions_users?
+						@post.mentioned_users.each do |mentioned_user|
+							send_notification(
+								mentioned_user,
+								:discussion_mention,
+								{:post_id => @post.id},
+								paged_discussion_path(:id => @discussion, :page => @discussion.last_page, :anchor => "post-#{@post.id}")
+							)
+						end
+					end
 					if request.xhr?
 						render :status => 201, :text => 'Created'
 					else

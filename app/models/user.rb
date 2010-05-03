@@ -38,6 +38,8 @@ class User < ActiveRecord::Base
 	has_many   :unread_messages, :class_name => 'Message', :foreign_key => 'recipient_id', :conditions => ['deleted = 0 AND `read` = 0'], :order => ['created_at DESC']
 	has_many   :sent_messages,   :class_name => 'Message', :foreign_key => 'sender_id',    :conditions => ['deleted_by_sender = 0'],      :order => ['created_at DESC']
 	has_one    :xbox_info, :dependent => :destroy
+	has_many   :notifications, :dependent => :destroy, :order => 'created_at DESC'
+	has_many   :unread_notifications, :class_name => 'Notification', :order => 'created_at DESC', :conditions => {:seen => false}
 
 	# Automatically generate a password for Facebook and OpenID users
 	before_validation_on_create do |user|
