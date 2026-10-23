@@ -7,7 +7,7 @@
 
 # For a containerized dev environment, see Dev Containers: https://guides.rubyonrails.org/getting_started_with_devcontainer.html
 
-ARG RUBY_VERSION=4.0.1
+ARG RUBY_VERSION=4.0
 ARG NODE_VERSION=25.6.0
 ARG PNPM_VERSION=11.1.1
 
