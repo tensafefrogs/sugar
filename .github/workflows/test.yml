@@ -1,0 +1,155 @@
+---
+name: Test
+on:
+  workflow_call:
+    inputs:
+      postgres_db:
+        required: true
+        type: string
+jobs:
+  eslint:
+    name: ESLint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: pnpm/action-setup@v6.1.0
+        with:
+          run_install: true
+      - name: Check code
+        run: pnpm lint
+
+  herb-lint:
+    name: Herb Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: pnpm/action-setup@v6.1.0
+        with:
+          run_install: true
+      - name: Check code
+        run: pnpm lint:herb
+
+  herb-format:
+    name: Herb Format
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: pnpm/action-setup@v6.1.0
+        with:
+          run_install: true
+      - name: Check code
+        run: pnpm format:herb
+
+  prettier:
+    name: Prettier
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: pnpm/action-setup@v6.1.0
+        with:
+          run_install: true
+      - name: Check code
+        run: pnpm prettier
+
+  rspec:
+    name: RSpec
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      BUNDLE_WITHOUT: development
+      DATABASE_URL: postgres://postgres@localhost:5432/${{ inputs.postgres_db }}
+      CACHE_DATABASE_URL: postgres://postgres@localhost:5432/${{ inputs.postgres_db }}_cache
+      QUEUE_DATABASE_URL: postgres://postgres@localhost:5432/${{ inputs.postgres_db }}_queue
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      RAILS_ENV: test
+    services:
+      postgres:
+        image: postgres:18
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ${{ inputs.postgres_db }}
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Install system dependencies
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc --fail https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update
+          sudo apt-get install -y exiftool libvips42 libcurl4-openssl-dev postgresql-client-18 $(cat Aptfile | xargs)
+      - uses: pnpm/action-setup@v6.1.0
+        with:
+          run_install: true
+      - uses: ruby/setup-ruby@v1.329.0
+        with:
+          bundler-cache: true
+      - name: Prepare test environment
+        run: bin/rails test:prepare
+      - name: Run tests
+        run: bundle exec rspec
+      - name: Upload screenshots
+        uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: capybara-screenshots
+          path: tmp/capybara
+
+  rubocop:
+    name: Rubocop
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      BUNDLE_WITHOUT: development
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y exiftool libvips42 libcurl4-openssl-dev $(cat Aptfile | xargs)
+      - uses: ruby/setup-ruby@v1.329.0
+        with:
+          bundler-cache: true
+      - name: Check code
+        run: bundle exec rubocop --format github
+
+  security:
+    name: Security
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      BUNDLE_WITHOUT: development
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: ruby/setup-ruby@v1.329.0
+        with:
+          bundler-cache: true
+      - name: Run bundler-audit
+        run: bundle exec bundler-audit --update
+      - name: Run brakeman
+        run: bundle exec brakeman --no-pager
+
+  tsc:
+    name: TypeScript
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: pnpm/action-setup@v6.1.0
+        with:
+          run_install: true
+      - name: Check code
+        run: pnpm tsc --noEmit

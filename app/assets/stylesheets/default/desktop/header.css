@@ -1,0 +1,119 @@
+body {
+  background: #fff
+    linear-gradient(
+      to bottom,
+      #eceae4,
+      #aeada5 95px,
+      #a3a29c 95px,
+      #f7faff 96px,
+      #eceaeb 99px,
+      #fefefe 120px
+    )
+    top center / auto 120px no-repeat;
+}
+
+#header {
+  height: 96px;
+  color: #fff;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  min-width: 800px;
+  h1 {
+    font-size: 4em;
+    font-weight: bold;
+    margin: 15px 0 0 20px;
+    text-shadow: #aaa 1px 1px 1px;
+    letter-spacing: -0.03em;
+  }
+}
+
+#search {
+  position: absolute;
+  top: 33px;
+  right: 20px;
+}
+
+#account {
+  position: absolute;
+  bottom: 2px;
+  right: 20px;
+  font-size: 1.2em;
+  color: #555;
+  a,
+  a:visited {
+    color: #555;
+    font-weight: bold;
+    text-decoration: underline;
+  }
+  a:hover {
+    color: #333;
+  }
+}
+
+#navigation {
+  margin: 0;
+  position: absolute;
+  bottom: 3px;
+  left: 20px;
+  font-size: 1.2em;
+  line-height: 1;
+  li {
+    display: inline;
+    margin: 0 3px 0 0;
+    float: left;
+    a,
+    a:visited {
+      margin: 0;
+      text-decoration: none;
+      padding: 1px 10px 1px 10px;
+      background: linear-gradient(to bottom, #8f867e, #5f544b);
+      border: 1px solid #787878;
+      border-bottom: 1px solid #666;
+      color: #fff;
+    }
+    a:hover {
+      background: linear-gradient(to bottom, #625c58, #554e4c);
+      border: 1px solid #666;
+      border-bottom: 1px solid #666;
+      color: #fff;
+    }
+    &.current {
+      a,
+      a:visited {
+        background: linear-gradient(to bottom, #e7e7e3, #f9f9f9);
+        padding-top: 2px;
+        color: #000;
+        border: 1px solid #aaa;
+        border-bottom: 1px solid #f9f9f9;
+        font-weight: bold;
+      }
+    }
+    &.new {
+      a,
+      a:visited {
+        background: #d14b40 url("tab_new_messages_bg.gif") repeat-x;
+        color: #fff;
+        border: 1px solid #c24236;
+        border-bottom: 1px solid #c98175;
+        padding-left: 22px;
+      }
+      a:hover {
+        background: #d14b40 url("tab_new_messages_hover_bg.gif") repeat-x;
+      }
+    }
+  }
+}
+
+/* Errors and other notices */
+.notice {
+  background: #fdd;
+  border-top: 1px solid #d88;
+  border-bottom: 1px solid #d88;
+  color: #800;
+  margin: -20px -30px 20px -30px;
+  padding: 10px 30px;
+  font-size: 1.4em;
+  font-weight: bold;
+}

@@ -1,177 +1,185 @@
-# encoding: utf-8
+# frozen_string_literal: true
 
-Sugar::Application.routes.draw do
+Rails.application.routes.draw do
+  # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
 
-  use_doorkeeper
+  # Reveal health status on /up that returns 200 if the app boots with no exceptions, otherwise 500.
+  # Can be used by load balancers and uptime monitors to verify that the app is live.
+  get "up" => "rails/health#show", as: :rails_health_check
 
-  # API routes
-  namespace :api, :defaults => {:format => 'json'} do
-    scope :module => :v1 do
-      resources :users do
-        collection do
-          get 'me'
-        end
-      end
-    end
-  end
+  image_resources :avatars
+  image_resources :post_images
 
-  # OpenID
-  resource :openid, :controller => 'openid' do
-    member do
-      get 'complete'
-    end
-  end
-
-  # Facebook
-  resource :facebook, :controller => 'facebook' do
-    member do
-      get 'login'
-      get 'signup'
-      get 'connect'
-      post 'disconnect'
-    end
-  end
+  # Uploads
+  resources :uploads
 
   # Search discussions
-  get '/search/:query.:format' => 'discussions#search', as: :formatted_search_with_query
-  get '/search/:query'         => 'discussions#search', as: :search_with_query
-  match '/search'              => 'discussions#search', as: :search, via: [:get, :post]
+  get "/search/:query.:format" => "discussions#search", as: :formatted_search_with_query
+  get "/search/:query" => "discussions#search", as: :search_with_query
+  match "/search" => "discussions#search", as: :search, via: %i[get post]
 
-  # Search posts
-  get '/posts/search/:query' => 'posts#search'
-  match '/posts/search' => 'posts#search', :as => :search_posts, via: [:get, :post]
+  # Posts
+  resources :posts, only: [:show], constraints: { id: /\d+/ } do
+    collection do
+      match "search(/:query)", action: :search, as: :search, via: %i[get post]
+    end
+  end
 
-  # Search posts in discussion
-  match '/discussions/:id/search_posts/:query' => 'discussions#search_posts', via: [:get, :post]
+  # Sessions
+  resource :session, only: %i[new create destroy]
+
+  # Registrations
+  resources :registrations, only: %i[new create]
+
+  controller :registrations do
+    constraints(token: %r{[^?/]+}) do
+      get "/registrations/new/:token" => :new, as: :new_registration_by_token
+    end
+  end
 
   # Users
-  resources :users, except: [:edit, :show] do
+  resources :users, only: [:index], controller: "users/lists" do
     collection do
-      get 'login'
-      post 'authenticate'
-      get 'logout'
-      get 'password_reset'
-      post 'deliver_password'
-      get 'connect_facebook'
-      get 'disconnect_facebook'
+      get "online"
+      get "deactivated"
+      get "recently_joined"
+      get "admins"
+      get "top_posters"
+    end
 
-      get 'xboxlive'
-      get 'social'
-      get 'online'
-      get 'recently_joined'
-      get 'admins'
-      get 'top_posters'
-      get 'trusted'
-      get 'map'
-      get 'banned'
+    resource :invites, only: %i[create destroy], controller: "users/invites"
+  end
+
+  resources :user_links, only: %i[index] do
+    get "all", on: :collection
+  end
+
+  resources(:user_profiles,
+            only: %i[show update],
+            path: "users/profile",
+            controller: "users/profiles",
+            constraints: { id: %r{[^?/]+} }) do
+    member do
+      get "edit(/:page)", action: :edit, as: :edit
+      post "mute"
+      post "unmute"
+    end
+
+    resources :discussions, only: :index, controller: "users/discussions" do
+      collection do
+        get "participated"
+        get "participated/:page", action: :participated
+        get "/:page", action: :index
+      end
+    end
+
+    resources :posts, only: :index, controller: "users/posts" do
+      get "/:page", action: :index, on: :collection
     end
   end
 
-  controller :users do
-    post '/users/profile/:id/grant_invite'       => :grant_invite,   :as => :grant_invite_user
-    post '/users/profile/:id/revoke_invites'     => :revoke_invites, :as => :revoke_invites_user
-    get  '/users/profile/:id/update_openid'      => :update_openid,  :as => :update_openid_user
-    get  '/users/profile/:id/edit'               => :edit,           :as => :edit_user
-    get  '/users/profile/:id/edit/:page'         => :edit,           :as => :edit_user_page
-    get  '/users/profile/:id'                    => :show,           :as => :user_profile
-    get  '/users/profile/:id/discussions'        => :discussions,    :as => :discussions_user
-    get  '/users/profile/:id/discussions/:page'  => :discussions
-    get  '/users/profile/:id/participated'       => :participated,   :as => :participated_user
-    get  '/users/profile/:id/participated/:page' => :participated
-    get  '/users/profile/:id/posts'              => :posts,          :as => :posts_user
-    get  '/users/profile/:id/posts/:page'        => :posts,          :as => :paged_user_posts
-    get  '/users/profile/:id/stats'              => :stats,          :as => :stats_user
-    get  '/users/new/:token'                     => :new,            :as => :new_user_by_token
-  end
-
-  resources :password_resets, :only => [:new, :create, :show, :update]
-  controller :password_resets do
-    get '/password_resets/:id/:token' => :show, :as => :password_reset_with_token
-  end
-
-  # Categories
-  resources :categories
-  get '/categories/:id/:page' => 'categories#show'
+  resource :password_reset, only: %i[new create show update]
 
   # Discussions
-  controller :discussions do
-    get '/discussions/popular/:days/:page'  => :popular
-    get '/discussions/popular/:days'        => :popular
-    get '/discussions/archive/:page'        => :index,         :as => :paged_discussions
-    get '/conversations/new'                => :new,           :as => :new_conversation, :type => 'conversation'
-    get '/conversations/new/with/:username' => :new,           :as => :new_conversation_with, :type => 'conversation'
-    get '/conversations/archive/:page'      => :conversations, :as => :paged_conversations
-  end
-  resources :discussions do
+  get "/discussions/:id(/:page)(.:format)" => "discussions#show",
+      as: :discussion,
+      constraints: { id: %r{\d[^/.]*}, page: /\d+/ }
+
+  resources :discussions, except: [:show] do
     member do
-      get 'follow'
-      get 'unfollow'
-      get 'favorite'
-      get 'unfavorite'
-      get 'hide'
-      get 'unhide'
-      get 'search_posts'
-      get 'mark_as_read'
-      post 'invite_participant'
-      delete 'remove_participant'
+      get "mark_as_read"
     end
+
     collection do
-      get 'participated'
-      get 'search'
-      get 'following'
-      get 'favorites'
-      get 'hidden'
-      get 'conversations'
-      get 'popular'
+      get "participated"
+      get "search"
+      get "following"
+      get "favorites"
+      get "hidden"
+      get "popular"
+      get "popular/:days(/:page)", action: :popular, as: :popular_days
+      get "archive/:page", action: :index, as: :paged
+    end
+
+    # Relationship management
+    resource :relationship, only: [], controller: "discussion_relationships" do
+      post :follow
+      delete :follow, action: :unfollow, as: :unfollow
+      post :favorite
+      delete :favorite, action: :unfavorite, as: :unfavorite
+      post :hide
+      delete :hide, action: :unhide, as: :unhide
     end
 
     # Posts
-    resources :posts do
-      member do
-        get 'quote'
-      end
+    resources :posts, only: %i[edit create update], controller: "exchange_posts" do
       collection do
-        post 'doodle'
-        get  'count'
-        get  'since'
-        post 'preview'
+        get "since/:index", action: :since, as: :since
+        post "preview"
+        get "search"
       end
     end
   end
-  get '/discussions/:id/:page' => 'discussions#show', :as => :paged_discussion
-  get '/discussions/:discussion_id/posts/since/:index' => 'posts#since'
-  get '/conversations' => 'discussions#conversations', :as => :conversations
 
+  # Conversations
+  get "/conversations/:id(/:page)(.:format)" => "conversations#show",
+      as: :conversation,
+      constraints: { id: %r{\d[^/.]*}, page: /\d+/ }
+
+  resources :conversations, except: [:show] do
+    member do
+      get "mark_as_read"
+      get "mute"
+      get "unmute"
+    end
+
+    collection do
+      get "contact_moderators", action: :new, defaults: { moderators: true }
+      get "new/with/:username", action: :new, as: :new_with
+      get "archive/:page", action: :index, as: :paged
+    end
+
+    resources :participants, only: %i[create destroy], controller: "conversation_participants"
+
+    resources :posts, only: %i[edit create update], controller: "exchange_posts" do
+      collection do
+        get "since/:index", action: :since, as: :since
+        post "preview"
+        get "search"
+      end
+    end
+  end
 
   # Invites
   resources :invites do
-    member do
-      get :accept
-    end
-    collection do
-      get :all
-    end
+    get "all", on: :collection
+    get "accept", on: :member
   end
 
-  # Admin
-  resource :admin, :controller => 'admin' do
-    get 'configuration', :on => :member
-    post 'configuration', :on => :member
+  namespace :admin do
+    resource :configuration
   end
+  get "admin" => "admin/configurations#show", as: :admin
 
   # Help pages
-  get 'help' => 'help#index', :as => :help
-  get 'help/:page' => 'help#show', :as => :help_page
+  get "help" => "help#index", as: :help
+  get "help/keyboard" => "help#keyboard", as: :keyboard_help
+  get "help/code-of-conduct" => "help#code_of_conduct", as: :code_of_conduct_help
 
   # Vanilla redirects
   controller :vanilla do
-    get '/vanilla'              => :discussions
-    get '/vanilla/index.php'    => :discussions
-    get '/vanilla/comments.php' => :discussion
-    get '/vanilla/account.php'  => :user
+    get "/vanilla" => :discussions
+    get "/vanilla/index.php" => :discussions
+    get "/vanilla/comments.php" => :discussion
+    get "/vanilla/account.php" => :user
   end
 
-  # Root
-  root :to => "discussions#index"
+  mount MissionControl::Jobs::Engine, at: "/jobs"
 
+  # Render dynamic PWA files from app/views/pwa/* (remember to link manifest in application.html.erb)
+  get "manifest" => "rails/pwa#manifest", as: :pwa_manifest
+  # get "service-worker" => "rails/pwa#service_worker", as: :pwa_service_worker
+
+  # Defines the root path route ("/")
+  root to: "discussions#index"
 end

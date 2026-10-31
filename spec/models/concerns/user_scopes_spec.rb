@@ -1,92 +1,87 @@
-# encoding: utf-8
+# frozen_string_literal: true
 
-require 'spec_helper'
+require "rails_helper"
 
 describe UserScopes do
-
   # Create the first admin user
-  let!(:first_user) { create(:banned_user) }
+  let!(:first_user) { create(:user, :banned) }
 
   describe "active" do
-    let!(:not_activated) { create(:user, activated: false) }
-    let!(:banned) { create(:user, banned: true) }
-    let!(:active) { create(:user) }
     subject { User.active }
-    it { should == [active] }
+
+    let!(:active) { create(:user) }
+
+    before { create(:user, :banned) }
+
+    it { is_expected.to eq([active]) }
   end
 
   describe "by_username" do
-    before { first_user.destroy }
-    let!(:user1) { create(:user, username: 'danz') }
-    let!(:user2) { create(:user, username: 'adam') }
     subject { User.by_username }
-    it { should == [user2, user1] }
+
+    before { first_user.destroy }
+
+    let!(:user_danz) { create(:user, username: "danz") }
+    let!(:user_adam) { create(:user, username: "adam") }
+
+    it { is_expected.to eq([user_adam, user_danz]) }
   end
 
-  describe "banned" do
-    before { first_user.destroy }
-    let!(:not_banned) { create(:user) }
-    let!(:banned) { create(:user, banned: true) }
-    let!(:temporarily_banned) { create(:user, banned_until: (Time.now + 2.days)) }
-    subject { User.banned }
-    it { should =~ [banned, temporarily_banned] }
+  describe "deactivated" do
+    subject { User.deactivated }
+
+    before do
+      first_user.destroy
+      create(:user)
+    end
+
+    let!(:banned) { create(:user, :banned) }
+    let!(:hiatus) do
+      create(:user, banned_until: (Time.now.utc + 2.days), status: :hiatus)
+    end
+
+    it { is_expected.to contain_exactly(banned, hiatus) }
   end
 
   describe "online" do
-    let!(:online) { create(:user, last_active: 5.minutes.ago) }
-    let!(:not_online) { create(:user, last_active: 20.minutes.ago) }
     subject { User.online }
-    it { should == [online] }
+
+    let!(:online) { create(:user, last_active: 5.minutes.ago) }
+
+    before { create(:user, last_active: 20.minutes.ago) }
+
+    it { is_expected.to eq([online]) }
   end
 
   describe "admins" do
-    let!(:user) { create(:user) }
-    let!(:admin) { create(:admin) }
-    let!(:moderator) { create(:moderator) }
-    let!(:user_admin) { create(:user_admin) }
     subject { User.admins }
-    it { should =~ [admin, moderator, user_admin] }
-  end
 
-  describe "xbox_users" do
-    let!(:xbox_user) { create(:user, gamertag: 'example') }
-    let!(:non_xbox_user) { create(:user, gamertag: nil) }
-    subject { User.xbox_users }
-    it { should == [xbox_user] }
-  end
+    let!(:admin) { create(:user, :admin) }
+    let!(:moderator) { create(:user, :moderator) }
+    let!(:user_admin) { create(:user, :user_admin) }
 
-  describe "social" do
-    let!(:user) { create(:user) }
-    let!(:twitter) { create(:admin, twitter: 'elektronaut') }
-    let!(:instagram) { create(:admin, instagram: 'elektronaut') }
-    let!(:flickr) { create(:admin, flickr: 'elektronaut') }
-    subject { User.social }
-    it { should =~ [twitter, instagram, flickr] }
+    before { create(:user) }
+
+    it { is_expected.to contain_exactly(admin, moderator, user_admin) }
   end
 
   describe "recently_joined" do
-    let!(:user1) { create(:user, created_at: 2.days.ago) }
-    let!(:user2) { create(:user, created_at: 1.days.ago) }
     subject { User.recently_joined }
-    it { should == [user2, user1] }
+
+    let!(:older_user) { create(:user, created_at: 2.days.ago) }
+    let!(:newer_user) { create(:user, created_at: 1.day.ago) }
+
+    it { is_expected.to eq([newer_user, older_user]) }
   end
 
   describe "top_posters" do
-    let!(:user1) { create(:user, public_posts_count: 1) }
-    let!(:user2) { create(:user, public_posts_count: 2) }
-    let!(:user3) { create(:user, public_posts_count: 0) }
     subject { User.top_posters }
-    it { should == [user2, user1] }
-  end
 
-  describe "trusted" do
-    let!(:user) { create(:user) }
-    let!(:trusted) { create(:trusted_user) }
-    let!(:admin) { create(:admin) }
-    let!(:moderator) { create(:moderator) }
-    let!(:user_admin) { create(:user_admin) }
-    subject { User.trusted }
-    it { should =~ [trusted, admin, moderator, user_admin] }
-  end
+    let!(:low_post_user) { create(:user, public_posts_count: 1) }
+    let!(:high_post_user) { create(:user, public_posts_count: 2) }
 
+    before { create(:user, public_posts_count: 0) }
+
+    it { is_expected.to eq([high_post_user, low_post_user]) }
+  end
 end

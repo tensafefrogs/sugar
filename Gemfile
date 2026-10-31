@@ -1,82 +1,75 @@
-source 'http://rubygems.org'
+# frozen_string_literal: true
 
-gem 'rails', '4.0.0'
-gem 'bcrypt-ruby', require: 'bcrypt'
-gem 'rails-observers'
-gem 'actionpack-page_caching'
+source "https://rubygems.org"
+git_source(:github) { |repo| "https://github.com/#{repo}.git" }
 
-gem 'sqlite3'
-gem 'mysql2'
-gem 'pg'
+ruby "~> 4.0.0"
 
-gem 'redis', '~> 3.0.4'
-gem 'hiredis', '~> 0.4.5'
+gem "rails", "~> 8.1.0"
 
-gem 'therubyracer'
-gem 'json'
-gem 'sass-rails', '~> 4.0.0'
-gem 'coffee-rails'
-gem 'uglifier'
-gem 'dynamic_form'
-gem 'jquery-rails'
-gem 'rails-backbone'
+gem "acts_as_list"
+gem "alba"
+gem "bcrypt", "~> 3.1.12"
+gem "bootsnap", ">= 1.1.0", require: false
+gem "dynamic_image"
+gem "fastimage"
+gem "fog-aws"
+gem "herb"
+gem "kamal", require: false
+gem "nokogiri"
+gem "pg"
+gem "pg_search"
+gem "postmark-rails"
+gem "progress_bar"
+gem "puma"
+gem "rack-attack"
+gem "rails_semantic_logger"
+gem "redcarpet", "~> 3.5"
+gem "rouge"
+gem "ruby-oembed", require: "oembed"
+gem "thruster", require: false
+gem "typhoeus"
+gem "validate_url"
 
-# Deploy with Capistrano
-gem 'capistrano'
+gem "mission_control-jobs"
+gem "solid_cable"
+gem "solid_cache"
+gem "solid_queue"
 
-# To use debugger
-# gem 'ruby-debug'
+# Frontend
+gem "cssbundling-rails"
+gem "gemoji"
+gem "jsbundling-rails"
+gem "propshaft"
+gem "tombolo"
 
-# OAuth
-gem 'doorkeeper', '~> 0.7.2'
-
-# OpenID gem. The stock gem is incompatible with Ruby 1.9, this fixes that.
-gem 'ruby-openid', require: 'openid'
-
-gem 'acts_as_list'
-
-gem 'nokogiri'
-gem 'daemon-spawn'
-
-gem 'sunspot_rails'
-gem 'progress_bar'
-
-gem 'newrelic_rpm', group: 'newrelic'
-
-gem 'fastimage'
-gem 'redcarpet', '~> 3.0'
-gem "font-awesome-rails"
+# 3rd party monitoring
+gem "sentry-rails"
+gem "sentry-ruby"
 
 group :development do
-  gem 'yui-compressor', require: 'yui/compressor'
-  gem 'guard'
-  gem 'guard-spork'
-  gem 'guard-rspec'
+  gem "web-console"
 end
 
-group :development_mac do
-  gem 'rb-fsevent'
-  gem 'ruby_gntp'
-end
+group :development, :test do
+  gem "brakeman", require: false
+  gem "bundler-audit", require: false
+  gem "debug", platforms: %i[mri windows], require: "debug/prelude"
 
-group :test do
-  gem 'simplecov', require: false
-end
+  gem "capybara"
+  gem "factory_bot_rails"
+  gem "rspec-rails"
+  gem "selenium-webdriver"
+  gem "shoulda-matchers", [">= 4.3.0", "!= 4.4.0"]
+  gem "simplecov"
+  gem "timecop"
+  gem "webmock", require: false
 
-group :test, :development do
-  gem 'sunspot_solr'
-  gem 'sunspot-rails-tester'
-
-  # RSpec
-  gem 'rspec-rails'
-  gem 'rspec-redis_helper'
-  gem 'shoulda-matchers'
-  gem 'capybara'
-  gem 'fuubar'
-
-  # FactoryGirl
-  gem 'factory_girl_rails'
-
-  # Spork
-  gem 'spork'
+  gem "rubocop", require: false
+  gem "rubocop-capybara", require: false
+  gem "rubocop-factory_bot", require: false
+  gem "rubocop-performance", require: false
+  gem "rubocop-rails", require: false
+  gem "rubocop-rspec", require: false
+  gem "rubocop-rspec_rails", require: false
 end

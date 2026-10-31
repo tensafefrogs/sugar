@@ -1,0 +1,116 @@
+table.discussions {
+  border-collapse: collapse;
+  border-top: 1px solid #e2dcbf;
+  width: 100%;
+  margin-bottom: 20px;
+
+  td {
+    padding: 3px 20px 7px 0;
+    border-bottom: 1px solid #e2dcbf;
+    white-space: nowrap;
+    color: #6f5a43;
+
+    &.name {
+      font-size: 1.3em;
+      font-weight: 600;
+      padding-bottom: 0;
+      padding-top: 7px;
+      border-bottom: 0;
+      .title {
+        white-space: normal;
+        float: left;
+        max-width: 600px;
+      }
+    }
+
+    &.last {
+      width: 100%;
+    }
+  }
+
+  tr {
+    &.new_posts {
+      background: #ffffe8;
+      td.new_posts strong {
+        color: #c76700;
+      }
+    }
+    &.nsfw {
+      opacity: 0.6;
+    }
+    &.closed {
+      .name {
+        a,
+        a:visited {
+          color: #666;
+        }
+        a:hover,
+        a:focus {
+          color: #333;
+        }
+      }
+    }
+  }
+
+  .targeted {
+    td {
+      background: #f0f5f8;
+      color: #012;
+    }
+    &.nsfw {
+      opacity: 1;
+    }
+  }
+}
+
+.new_discussion input.text,
+.edit_discussion input.text {
+  width: 100%;
+  max-width: 800px;
+}
+
+#new_discussion input.title,
+#edit_discussion input.title {
+  font-size: 1.2em;
+}
+
+#new_discussion {
+  .title_search {
+    border: 1px solid #e2dcbf;
+    padding: 2px 8px;
+    width: 100%;
+    max-width: 588px;
+    margin-top: 2px;
+    &.loading {
+      background: transparent url("ajax_spinner_small.gif") 0 2px no-repeat;
+      padding: 2px 24px;
+      border: 0;
+      color: #84806d;
+    }
+
+    h4 {
+      margin-bottom: 0;
+      padding: 8px 0;
+      font-size: 1.2em;
+      color: #84806d;
+    }
+
+    a,
+    a:visited {
+      border-top: 1px solid #e2dcbf;
+      padding: 4px 0;
+      font-size: 1.2em;
+      display: block;
+    }
+
+    a.discussion {
+      font-weight: bold;
+      .posts_count {
+        font-weight: normal;
+        font-size: 0.8em;
+        padding-left: 4px;
+        color: #84806d;
+      }
+    }
+  }
+}

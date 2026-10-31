@@ -1,81 +1,66 @@
-require "spec_helper"
+# frozen_string_literal: true
+
+require "rails_helper"
 
 describe Mailer do
-
-  let(:user)      { create(:new_user) }
+  let(:user)      { create(:user) }
   let(:invite)    { create(:invite) }
   let(:login_url) { "http://example.com/login" }
 
   before do
-    Sugar.config(:forum_name, "Sugar")
-    Sugar.config(:mail_sender, "test@example.com")
+    B3S.config.forum_name = "B3S"
+    B3S.config.mail_sender = "test@example.com"
   end
 
   describe "invite" do
+    let(:mail) { described_class.invite(invite, login_url) }
 
-    let(:mail) { Mailer.invite(invite, login_url) }
-
-    specify { mail.subject.should == "#{invite.user.realname} has invited you to Sugar!" }
-    specify { mail.to.should == [invite.email] }
-    specify { mail.from.should == ["test@example.com"] }
-
-    describe "its body" do
-
-      subject { mail.body.encoded }
-
-      it { should match(Sugar.config(:forum_name)) }
-      it { should match(invite.user.realname) }
-      it { should match(login_url) }
-
-      context "when invite has message" do
-        let(:invite) { create(:invite, message: "My message") }
-        it { should match("My message") }
-      end
-
+    specify do
+      expect(
+        mail.subject
+      ).to eq("#{invite.user.realname} has invited you to B3S!")
     end
 
+    specify { expect(mail.to).to eq([invite.email]) }
+    specify { expect(mail.from).to eq(["test@example.com"]) }
+
+    describe "its body" do
+      subject { mail.body.encoded }
+
+      let(:invite) { create(:invite, message: "My message") }
+
+      it { is_expected.to match(B3S.config.forum_name) }
+      it { is_expected.to match(invite.user.realname) }
+      it { is_expected.to match(login_url) }
+      it { is_expected.to match("My message") }
+    end
   end
 
   describe "new_user" do
+    let(:mail) { described_class.new_user(user, login_url) }
 
-    let(:mail) { Mailer.new_user(user, login_url) }
-
-    specify { mail.subject.should == "Welcome to Sugar!" }
-    specify { mail.to.should == [user.email] }
-    specify { mail.from.should == ["test@example.com"] }
+    specify { expect(mail.subject).to eq("Welcome to B3S!") }
+    specify { expect(mail.to).to eq([user.email]) }
+    specify { expect(mail.from).to eq(["test@example.com"]) }
 
     describe "its body" do
-
       subject { mail.body.encoded }
 
-      context "when signed up with password" do
-
-        it { should match(user.username) }
-        it { should match(login_url) }
-
-      end
-
-      context "when signed up with OpenID" do
-
-        let(:user) { create(:new_user, openid_url: "http://example.com/") }
-
-        it { should match(user.openid_url) }
-        it { should match(user.username) }
-
-      end
-
+      it { is_expected.to match(user.username) }
+      it { is_expected.to match(login_url) }
     end
-
   end
 
   describe "password_reset" do
-    let(:mail) { Mailer.password_reset("user@example.com", "http://example.com") }
     subject { mail }
 
-    its(:subject) { should == "Password reset for Sugar" }
-    its(:to) { should == ["user@example.com"] }
-    its(:from) { should == ["test@example.com"] }
-    its("body.encoded") { should match("http://example.com") }
-  end
+    let(:mail) do
+      described_class.password_reset("user@example.com", "http://example.com")
+    end
 
+    specify { expect(mail.subject).to eq("Password reset for B3S") }
+    specify { expect(mail.to).to eq(["user@example.com"]) }
+    specify { expect(mail.from).to eq(["test@example.com"]) }
+    specify { expect(mail.body.encoded).to match("http://example.com") }
+  end
 end

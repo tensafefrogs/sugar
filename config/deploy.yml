@@ -1,0 +1,151 @@
+---
+service: b3s
+image: b3s/b3s
+
+ssh:
+  user: app
+
+servers:
+  web:
+    - vimes.elektronaut.no
+  jobs:
+    hosts:
+      - vimes.elektronaut.no
+    cmd: bin/jobs
+
+proxy:
+  ssl: true
+  app_port: 8080
+  hosts:
+    - b3s.me
+    - www.b3s.me
+    - butt3rscotch.org
+    - www.butt3rscotch.org
+    - b3s.vimes.elektronaut.no
+
+registry:
+  server: ghcr.io
+  username: elektronaut
+  password:
+    - KAMAL_REGISTRY_PASSWORD
+
+builder:
+  arch: amd64
+
+env:
+  clear:
+    RAILS_ENV: "production"
+    WEB_CONCURRENCY: 2
+    NGINX_CACHE_MAX_SIZE: "10g"
+  secret:
+    - RAILS_MASTER_KEY
+    - DATABASE_URL
+    - CABLE_DATABASE_URL
+    - CACHE_DATABASE_URL
+    - QUEUE_DATABASE_URL
+    - OEMBED_FACEBOOK_TOKEN
+
+# Persistent caches across deploys
+volumes:
+  - "b3s-nginx-cache:/var/cache/nginx"
+  - "b3s-dis-cache:/rails/storage/dis-cache"
+
+asset_path: /rails/public/assets
+
+logging:
+  options:
+    max-size: 300m
+
+accessories:
+  postgres:
+    image: postgres:18
+    roles:
+      - web
+    env:
+      clear:
+        POSTGRES_USER: "b3s"
+        POSTGRES_DB: "b3s"
+      secret:
+        - POSTGRES_PASSWORD
+    cmd: "postgres -c shared_buffers=512MB"
+    directories:
+      - data:/var/lib/postgresql
+  postgres-backups:
+    image: siemens/postgres-backup-s3:18
+    roles:
+      - web
+    env:
+      clear:
+        SCHEDULE: "@daily"
+        BACKUP_KEEP_DAYS: 14
+        S3_BUCKET: b3s-db-backups
+        S3_PREFIX: postgres
+        S3_REGION: eu-central-1
+        POSTGRES_USER: "b3s"
+        POSTGRES_DATABASE: "b3s"
+        POSTGRES_HOST: "b3s-postgres"
+      secret:
+        - POSTGRES_PASSWORD
+        - S3_ACCESS_KEY_ID
+        - S3_SECRET_ACCESS_KEY
+  victorialogs:
+    image: victoriametrics/victoria-logs:v1.50.0
+    roles:
+      - web
+    port: "127.0.0.1:9428:9428"
+    cmd: "-storageDataPath=/victoria-logs-data -retentionPeriod=90d -retention.maxDiskSpaceUsageBytes=10GB"
+    volumes:
+      - victorialogs-data:/victoria-logs-data
+  fluentbit:
+    image: fluent/fluent-bit:5.0.5
+    roles:
+      - web
+    cmd: "-c /fluent-bit/etc/fluent-bit.conf"
+    files:
+      - config/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf
+      - config/fluent-bit-parsers.conf:/fluent-bit/etc/fluent-bit-parsers.conf
+    volumes:
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - fluentbit-state:/fluent-bit/state
+  node-exporter:
+    image: prom/node-exporter:v1.12.1
+    roles:
+      - web
+    cmd: "--path.procfs=/host/proc --path.sysfs=/host/sys --path.rootfs=/host/root '--collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run|var/lib/docker/.+)($|/)'"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/host/root:ro
+  victoriametrics:
+    image: victoriametrics/victoria-metrics:v1.148.0
+    roles:
+      - web
+    port: "127.0.0.1:8428:8428"
+    cmd: "-storageDataPath=/victoria-metrics-data -retentionPeriod=90d -memory.allowedBytes=512MB -promscrape.config=/etc/victoriametrics/scrape.yml"
+    files:
+      - config/victoriametrics-scrape.yml:/etc/victoriametrics/scrape.yml
+    volumes:
+      - victoriametrics-data:/victoria-metrics-data
+  vmalert:
+    image: victoriametrics/vmalert:v1.148.0
+    roles:
+      - web
+    port: "127.0.0.1:8880:8880"
+    cmd: "-datasource.url=http://b3s-victoriametrics:8428 -remoteWrite.url=http://b3s-victoriametrics:8428 -remoteRead.url=http://b3s-victoriametrics:8428 -notifier.url=http://b3s-alertmanager:9093 -rule=/etc/vmalert/alerts.yml -evaluationInterval=1m"
+    files:
+      - config/alerts.yml:/etc/vmalert/alerts.yml
+  alertmanager:
+    image: prom/alertmanager:v0.33.1
+    roles:
+      - web
+    port: "127.0.0.1:9093:9093"
+    options:
+      entrypoint: /bin/sh
+    env:
+      secret:
+        - POSTMARK_API_TOKEN
+    cmd: "-c 'sed \"s|\\${POSTMARK_API_TOKEN}|$POSTMARK_API_TOKEN|g\" /etc/alertmanager/alertmanager.yml.template > /tmp/alertmanager.yml && exec /bin/alertmanager --config.file=/tmp/alertmanager.yml --storage.path=/alertmanager --cluster.listen-address='"
+    files:
+      - config/alertmanager.yml.template:/etc/alertmanager/alertmanager.yml.template
+    volumes:
+      - alertmanager-data:/alertmanager

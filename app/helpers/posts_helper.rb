@@ -1,13 +1,74 @@
-# encoding: utf-8
+# frozen_string_literal: true
 
 module PostsHelper
+  def emojify(content)
+    return if content.blank?
+
+    # Only escape if content isn't already safe HTML
+    content_str = content.html_safe? ? content : h(content)
+
+    safe_scan_and_replace(content_str, /:([\w+-]+):/) do |match|
+      emoji = Emoji.find_by_alias(match[1])
+      emoji ? emoji_tag(emoji, alt: match[1]) : match[0]
+    end
+  end
+
+  def emoji_tag(emoji, alt:)
+    tag(:img,
+        alt:,
+        class: "emoji",
+        src: emoji_path(emoji),
+        style: "vertical-align:middle",
+        width: 16, height: 16)
+  rescue ActionView::Template::Error, Propshaft::MissingAssetError
+    # Return the unicode character for the emoji
+    emoji.raw || ":#{alt}:"
+  end
+
+  def format_post(content, user)
+    emojify(meify(content, user))
+  end
 
   def meify(string, user)
-    string.gsub(/(^|\<[\w]+\s?\/?\>|[\s])\/me/){ $1.to_s + profile_link(user, nil, :class => :poster) }.html_safe
+    return if string.blank?
+
+    content = string.html_safe? ? string : h(string)
+
+    safe_scan_and_replace(content, %r{(^|<\w+\s?/?>|\s)/me}) do |match|
+      safe_join([content[match.begin(1)...match.end(1)],
+                 profile_link(user, nil, class: :poster)])
+    end
   end
 
-  def format_post(string)
-    Sugar::PostRenderer::Renderer.new(string).to_html
+  def render_post(string)
+    Renderer.render(string)
   end
 
+  def post_timestamp_link(post)
+    if post.persisted?
+      link_to(time_tag(post.created_at, class: "relative date"),
+              post_path(post),
+              title: "Permalink to this post",
+              class: "permalink")
+    else
+      tag.time("Preview", class: "relative date")
+    end
+  end
+
+  private
+
+  def safe_scan_and_replace(content, pattern)
+    parts = []
+    last_end = 0
+
+    content.scan(pattern) do
+      match = Regexp.last_match
+      parts << content[last_end...match.begin(0)] if match.begin(0) > last_end
+      parts << yield(match)
+      last_end = match.end(0)
+    end
+
+    parts << content[last_end..] if last_end < content.length
+    safe_join(parts)
+  end
 end

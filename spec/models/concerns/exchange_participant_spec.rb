@@ -1,153 +1,249 @@
-# encoding: utf-8
+# frozen_string_literal: true
 
-require 'spec_helper'
+require "rails_helper"
 
 describe ExchangeParticipant do
+  subject(:user) { create(:user) }
 
-  let(:user)         { create(:user) }
   let(:discussion)   { create(:discussion) }
   let(:conversation) { create(:conversation) }
 
-  subject { user }
+  it { is_expected.to have_many(:discussions) }
+  it { is_expected.to have_many(:posts) }
+  it { is_expected.to have_many(:discussion_posts).class_name("Post") }
+  it { is_expected.to have_many(:exchange_views).dependent(:destroy) }
+  it { is_expected.to have_many(:discussion_relationships).dependent(:destroy) }
 
-  it { should have_many(:discussions) }
-  it { should have_many(:posts) }
-  it { should have_many(:discussion_posts).class_name('Post') }
-  it { should have_many(:discussion_views).dependent(:destroy) }
-  it { should have_many(:discussion_relationships).dependent(:destroy) }
-  it { should have_many(:conversation_relationships).dependent(:destroy) }
-  it { should have_many(:conversations).through(:conversation_relationships) }
+  specify do
+    expect(user).to have_many(:followed_discussions)
+      .through(:discussion_relationships)
+  end
 
-  describe "#mark_discussion_viewed" do
+  specify do
+    expect(user).to have_many(:favorite_discussions)
+      .through(:discussion_relationships)
+  end
+
+  specify do
+    expect(user).to have_many(:hidden_discussions)
+      .through(:discussion_relationships)
+  end
+
+  specify do
+    expect(user).to have_many(:conversation_relationships)
+      .dependent(:destroy)
+  end
+
+  specify do
+    expect(user).to have_many(:conversations)
+      .through(:conversation_relationships)
+  end
+
+  describe "#unhidden_discussions" do
+    subject { user.unhidden_discussions }
+
+    let!(:discussion) { create(:discussion) }
+    let!(:hidden_discussion) { create(:discussion) }
+
+    before do
+      DiscussionRelationship.define(user, hidden_discussion, hidden: true)
+    end
+
+    it { is_expected.to contain_exactly(discussion) }
+  end
+
+  describe "#mark_exchange_viewed" do
     let(:post) { create(:post, exchange: discussion) }
+    let(:exchange_view) { user.exchange_views.last }
 
-    context "with existing discussion view" do
-      let!(:discussion_view) { create(:discussion_view, user: user, discussion: discussion) }
+    context "with existing exchange view" do
+      before do
+        create(:exchange_view, user:, exchange: discussion)
+      end
 
       it "does not create a new view" do
-        expect {
-          user.mark_discussion_viewed(discussion, post, 2)
-        }.to change{ DiscussionView.count }.by(0)
+        expect do
+          user.mark_exchange_viewed(discussion, post, 2)
+        end.not_to change(ExchangeView, :count)
       end
 
-      describe "the new view" do
-        before do
-          user.mark_discussion_viewed(discussion, post, 2)
-          discussion_view.reload
-        end
-
-        subject { discussion_view }
-        its(:post_index) { should == 2 }
-        its(:post) { should == post }
+      it "sets the post index" do
+        user.mark_exchange_viewed(discussion, post, 2)
+        expect(exchange_view.post_index).to eq(2)
       end
 
+      it "sets the post" do
+        user.mark_exchange_viewed(discussion, post, 2)
+        expect(exchange_view.post).to eq(post)
+      end
     end
 
     context "without existing discussion view" do
       it "creates a new view" do
-        expect {
-          user.mark_discussion_viewed(discussion, post, 2)
-        }.to change{ DiscussionView.count }.by(1)
+        expect do
+          user.mark_exchange_viewed(discussion, post, 2)
+        end.to change(ExchangeView, :count).by(1)
       end
 
-      describe "the new discussion view" do
-        before { user.mark_discussion_viewed(discussion, post, 2) }
-        subject { user.discussion_views.last }
-        its(:post_index) { should == 2 }
-        its(:post) { should == post }
+      it "sets the post index" do
+        user.mark_exchange_viewed(discussion, post, 2)
+        expect(exchange_view.post_index).to eq(2)
+      end
+
+      it "sets the post" do
+        user.mark_exchange_viewed(discussion, post, 2)
+        expect(exchange_view.post).to eq(post)
       end
     end
-
   end
 
   describe "#mark_conversation_viewed" do
-    let(:user)         { conversation.poster }
-    let(:conversation_relationship) {
+    let(:relationship) do
       user.conversation_relationships.where(conversation_id: conversation).first
-    }
-    before { conversation_relationship.update_attributes(new_posts: true) }
-    before { user.mark_conversation_viewed(conversation) }
-    subject { user.conversation_relationships.where(conversation_id: conversation).first }
-    its(:new_posts?) { should be_false }
+    end
+
+    let(:user) { conversation.poster }
+    let(:conversation_relationship) do
+      user.conversation_relationships.where(conversation_id: conversation).first
+    end
+
+    before do
+      conversation_relationship.update(new_posts: true)
+      user.mark_conversation_viewed(conversation)
+    end
+
+    it "marks the conversation as viewed" do
+      expect(relationship.new_posts?).to be(false)
+    end
   end
 
   describe "#posts_per_day" do
+    subject { user.posts_per_day }
 
-    let(:user) { create(:user, :created_at => 3.days.ago) }
+    let(:user) { create(:user, created_at: 3.days.ago) }
 
     before do
-      create(:post, user: user)
+      create(:post, user:)
       user.reload
     end
 
-    subject { user.posts_per_day }
-
-    it { should be_within(0.001).of(1.0/3.0) }
+    it { is_expected.to be_within(0.001).of(1.0 / 3.0) }
   end
 
   describe "#unread_conversations_count" do
-
     subject { user.unread_conversations_count }
 
     context "with no conversations" do
-      it { should == 0 }
+      it { is_expected.to eq(0) }
     end
 
-    context "when notifications is set to false" do
-      before { create(:conversation_relationship, user: user, new_posts: true, notifications: false) }
-      it { should == 0 }
-    end
+    context "with conversations" do
+      before do
+        create(
+          :conversation_relationship,
+          user:,
+          new_posts: true
+        )
+      end
 
-    context "when notifications is set to false" do
-      before { create(:conversation_relationship, user: user, new_posts: true, notifications: true) }
-      it { should == 1 }
+      it { is_expected.to eq(1) }
     end
-
   end
 
   describe "#unread_conversations?" do
-
     subject { user.unread_conversations? }
 
     context "with no unread conversations" do
-      it { should be_false }
+      it { is_expected.to be(false) }
     end
 
     context "with unread conversations" do
-      before { create(:conversation_relationship, user: user, new_posts: true, notifications: true) }
-      it { should be_true }
+      before do
+        create(
+          :conversation_relationship,
+          user:,
+          new_posts: true
+        )
+      end
+
+      it { is_expected.to be(true) }
+    end
+  end
+
+  describe "#muted_conversation?" do
+    subject { user.muted_conversation?(conversation) }
+
+    let(:conversation) { create(:conversation) }
+
+    before { conversation.add_participant(user) }
+
+    context "when conversation isn't muted" do
+      it { is_expected.to be(false) }
     end
 
+    context "when conversation is muted" do
+      before do
+        user.conversation_relationships
+            .each { |cr| cr.update(notifications: false) }
+      end
+
+      it { is_expected.to be(true) }
+    end
+  end
+
+  describe "#discussion_relationship_with" do
+    before { DiscussionRelationship.define(user, discussion, following: true) }
+
+    it "memoizes the lookup per discussion" do
+      user.discussion_relationship_with(discussion)
+      queries = count_queries(matching: "discussion_relationships") do
+        3.times { user.discussion_relationship_with(discussion) }
+      end
+      expect(queries).to eq(0)
+    end
   end
 
   describe "#following?" do
-
     subject { user.following?(discussion) }
 
     context "when discussion isn't followed" do
-      it { should be_false }
+      it { is_expected.to be(false) }
     end
 
     context "when discussion is followed" do
-      before { DiscussionRelationship.define(user, discussion, following: true) }
-      it { should be_true }
-    end
+      before do
+        DiscussionRelationship.define(user, discussion, following: true)
+      end
 
+      it { is_expected.to be(true) }
+    end
   end
 
   describe "#favorite?" do
-
     subject { user.favorite?(discussion) }
 
     context "when discussion isn't favorite" do
-      it { should be_false }
+      it { is_expected.to be(false) }
     end
 
     context "when discussion is favorite" do
       before { DiscussionRelationship.define(user, discussion, favorite: true) }
-      it { should be_true }
-    end
 
+      it { is_expected.to be(true) }
+    end
   end
 
+  describe "#hidden?" do
+    subject { user.hidden?(discussion) }
+
+    context "when discussion isn't hidden" do
+      it { is_expected.to be(false) }
+    end
+
+    context "when discussion is hidden" do
+      before { DiscussionRelationship.define(user, discussion, hidden: true) }
+
+      it { is_expected.to be(true) }
+    end
+  end
 end

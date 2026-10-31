@@ -1,0 +1,112 @@
+---
+plugins:
+  - rubocop-capybara
+  - rubocop-factory_bot
+  - rubocop-performance
+  - rubocop-rails
+  - rubocop-rspec
+  - rubocop-rspec_rails
+
+AllCops:
+  NewCops: enable
+  TargetRubyVersion: 4.0
+  Exclude:
+    - "bin/**/*"
+    - "db/schema.rb"
+    - "node_modules/**/*"
+    - "vendor/**/*"
+
+Layout/LineLength:
+  AutoCorrect: true
+  Exclude:
+    - "db/migrate/*"
+    - "db/queue_migrate/*"
+    - "config/environments/*.rb"
+    - "config/initializers/content_security_policy.rb"
+
+Metrics/AbcSize:
+  Exclude:
+    - "db/migrate/*"
+    - "db/queue_migrate/*"
+
+Metrics/BlockLength:
+  Exclude:
+    - "config/deploy.rb"
+    - "config/environments/*"
+    - "config/routes.rb"
+    - "db/migrate/*"
+    - "db/queue_migrate/*"
+    - "**/*_spec.rb"
+    - "**/*.rake"
+    - "spec/factories.rb"
+    - "spec/rails_helper.rb"
+
+Metrics/ClassLength:
+  Exclude:
+    - "db/migrate/*"
+    - "db/queue_migrate/*"
+
+Metrics/MethodLength:
+  Exclude:
+    - "db/migrate/*"
+    - "db/queue_migrate/*"
+
+Style/FormatStringToken:
+  Exclude:
+    - "config/routes.rb"
+
+Style/HashSyntax:
+  EnforcedShorthandSyntax: always
+
+Style/StringLiterals:
+  EnforcedStyle: double_quotes
+
+Style/Documentation:
+  Enabled: false
+
+Style/Encoding:
+  Enabled: false
+
+Rails/ContentTag:
+  Exclude:
+    - "app/helpers/b3s_form_builder.rb"
+    - "app/helpers/icons_helper.rb"
+    - "app/helpers/posts_helper.rb"
+    - "config/puma.rb"
+
+Rails/CreateTableWithTimestamps:
+  Exclude:
+    - "db/migrate/20080701172614_create_exchange_views.rb"
+    - "db/migrate/20090404154958_create_discussion_relationships.rb"
+    - "db/migrate/20210511201335_create_active_storage_variant_records.active_storage.rb"
+
+Rails/DynamicFindBy:
+  AllowedReceivers:
+    - Emoji
+
+Rails/OutputSafety:
+  Exclude:
+    - "app/filters/sanitize_filter.rb"
+    - "app/models/post.rb"
+
+Rails/SkipsModelValidations:
+  AllowedMethods:
+    - update_counters
+  Exclude:
+    - "app/models/discussion.rb"
+
+Rails/ThreeStateBooleanColumn:
+  Exclude:
+    - "db/migrate/20260904042049_add_frame_count_and_alpha_to_image_tables.rb"
+
+RSpec:
+  Language:
+    Expectations:
+      - user_is_logged_in
+    Includes:
+      Examples:
+        - it_requires_admin_for
+        - it_requires_authentication_for
+        - it_requires_login_for
+        - it_requires_moderator_for
+        - it_requires_user_admin_for

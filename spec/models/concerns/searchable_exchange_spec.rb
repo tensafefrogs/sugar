@@ -1,33 +1,16 @@
-# encoding: utf-8
+# frozen_string_literal: true
 
-require 'spec_helper'
+require "rails_helper"
 
-describe SearchableExchange, :solr => true do
+describe SearchableExchange do
+  describe ".search" do
+    subject { Discussion.search("testing") }
 
-  let!(:discussion)         { create(:discussion, title: 'testing discussion') }
-  let!(:trusted_discussion) { create(:trusted_discussion, title: 'testing trusted discussion') }
-  let!(:conversation)       { create(:conversation, title: 'testing conversation') }
+    let!(:discussion) { create(:discussion, title: "testing discussion") }
+    let(:user) { create(:user) }
 
-  let(:user)                { create(:user) }
-  let(:trusted_user)        { create(:trusted_user) }
+    before { create(:conversation, title: "testing conversation") }
 
-  describe ".search_results" do
-    before { Sunspot.commit }
-
-    context "as nobody" do
-      subject { Discussion.search_results('testing', user: nil, page: 1) }
-      it { should =~ [discussion] }
-    end
-
-    context "as a regular user" do
-      subject { Discussion.search_results('testing', user: user, page: 1) }
-      it { should =~ [discussion] }
-    end
-
-    context "as a trusted user" do
-      subject { Discussion.search_results('testing', user: trusted_user, page: 1) }
-      it { should =~ [discussion, trusted_discussion] }
-    end
+    it { is_expected.to contain_exactly(discussion) }
   end
-
 end

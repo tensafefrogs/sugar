@@ -1,306 +1,411 @@
-# encoding: utf-8
+# frozen_string_literal: true
 
-require "spec_helper"
+require "rails_helper"
 
 describe Post do
+  let(:exchange) { create(:discussion) }
+  let(:post) { create(:post) }
+  let(:user) { create(:user) }
+  let(:cache_path) do
+    Rails.public_path.join("cache", "discussions", exchange.id.to_s, "posts",
+                           "count.json")
+  end
 
-  let(:discussion)         { create(:discussion) }
-  let(:trusted_discussion) { create(:trusted_discussion) }
-  let(:conversation)       { create(:conversation) }
-  let(:post)               { create(:post) }
-  let(:trusted_post)       { create(:trusted_post) }
-  let(:user)               { create(:user) }
-  let(:trusted_user)       { create(:trusted_user) }
-  let(:moderator)          { create(:moderator) }
-  let(:admin)              { create(:admin) }
-  let(:user_admin)         { create(:user_admin) }
-  let(:mentioned_users)    { ["eléktronaut", "#1", "With space"].map{|u| create(:user, username: u) } }
-  let(:mentioning_post)    { create(:post, body: mentioned_users.map{|u| "@#{u.username.downcase}" }.join(" and ")) }
-
-  it { should belong_to(:user) }
-  it { should belong_to(:exchange) }
-  it { should have_many(:discussion_views) }
+  it { is_expected.to belong_to(:user) }
+  it { is_expected.to belong_to(:exchange) }
+  it { is_expected.to have_many(:exchange_views) }
 
   describe "after_create" do
+    let(:post) { create(:post, exchange:) }
 
-    let(:post) { create(:post, exchange: discussion) }
-
-    specify { post.user.participated_discussions.should include(discussion) }
+    specify do
+      expect(post.user.participated_discussions).to include(exchange)
+    end
 
     describe "the discussion it belongs to" do
       before { post }
-      subject { discussion }
-      its(:last_poster) { should == post.user }
-      its(:last_post_at) { should == post.created_at }
+
+      specify { expect(exchange.last_poster).to eq(post.user) }
+      specify { expect(exchange.last_post_at).to eq(post.created_at) }
     end
 
+    describe "updating posts count" do
+      let!(:exchange) { create(:discussion) }
+      let(:post) { create(:post, user:, exchange:) }
+
+      it "increments public_posts_count on user" do
+        expect { post }.to change(user, :public_posts_count).by(1)
+      end
+
+      it "increments posts_count on user" do
+        expect { post }.to change(user, :posts_count).by(1)
+      end
+
+      it "increments posts_count on exchange" do
+        expect { post }.to change(exchange, :posts_count).by(1)
+      end
+    end
+
+    describe "broadcasting the new post" do
+      let!(:exchange) { create(:discussion) }
+
+      it "broadcasts the updated posts_count" do
+        expect { create(:post, exchange:) }.to(
+          have_broadcasted_to(exchange)
+            .from_channel(ExchangeChannel)
+            .with(hash_including(posts_count: 2))
+        )
+      end
+
+      it "broadcasts the rendered post html" do
+        allow(ExchangeChannel).to receive(:broadcast_to)
+        new_post = create(:post, exchange:)
+        expected = hash_including(post_id: new_post.id,
+                                  html: a_string_including("post-#{new_post.id}"))
+        expect(ExchangeChannel).to have_received(:broadcast_to).with(exchange, expected)
+      end
+    end
+  end
+
+  describe "after_destroy" do
+    describe "updating posts count" do
+      let!(:post) { create(:post, user:, exchange:) }
+
+      it "decrements public_posts_count on user" do
+        expect { post.destroy }.to change { user.reload.public_posts_count }.by(-1)
+      end
+
+      it "decrements posts_count on user" do
+        expect { post.destroy }.to change { user.reload.posts_count }.by(-1)
+      end
+
+      it "decrements posts_count on exchange" do
+        expect { post.destroy }.to change { exchange.reload.posts_count }.by(-1)
+      end
+    end
   end
 
   describe "#me_post?" do
-
     subject { post.me_post? }
 
     context "when post starts with /me" do
       let(:post) { create(:post, body: "/me shuffles") }
-      it { should be_true }
+
+      it { is_expected.to be(true) }
     end
 
     context "when post starts with /me and contains a line break" do
       let(:post) { create(:post, body: "/me shuffles\noh yeah") }
-      it { should be_false }
+
+      it { is_expected.to be_falsey }
     end
 
     context "when post doesn't start with /me" do
       let(:post) { create(:post, body: "Start with /me") }
-      it { should be_false }
-    end
 
+      it { is_expected.to be_falsey }
+    end
   end
 
-  describe "#post_number" do
-    specify { discussion.posts.first.post_number.should == 1 }
-    specify { create(:post, exchange: discussion).post_number.should == 2 }
+  describe "acts_as_list position" do
+    it "assigns sequential positions on create" do
+      exchange.posts.first
+      create(:post, exchange:)
+      create(:post, exchange:)
+      expect(exchange.posts.order(:id).pluck(:position)).to eq([1, 2, 3])
+    end
   end
 
   describe "#page" do
-
     subject { post.page }
 
     context "when it's the first post" do
-      before { post.stub(:post_number).and_return(1) }
-      it { should == 1 }
+      before { allow(post).to receive(:position).and_return(1) }
+
+      it { is_expected.to eq(1) }
     end
 
     context "when it's the last post on a page" do
-      before { post.stub(:post_number).and_return(50) }
-      it { should == 1 }
+      before { allow(post).to receive(:position).and_return(50) }
+
+      it { is_expected.to eq(1) }
     end
 
     context "when it's the first post on the second page" do
-      before { post.stub(:post_number).and_return(51) }
-      it { should == 2 }
+      before { allow(post).to receive(:position).and_return(51) }
+
+      it { is_expected.to eq(2) }
     end
 
     context "with :limit set" do
-      before { post.stub(:post_number).and_return(70) }
-      subject { post.page(:limit => 10) }
-      it { should == 7 }
-    end
+      subject { post.page(limit: 10) }
 
+      before { allow(post).to receive(:position).and_return(70) }
+
+      it { is_expected.to eq(7) }
+    end
   end
 
   describe "#body_html" do
-
-    let!(:discussion) { create(:discussion) }
-    let!(:post) { create(:post, exchange: discussion) }
-
     subject { post.body_html }
-    it { should == Sugar::PostRenderer::Renderer.new(post.body).to_html }
+
+    let!(:post) { create(:post, exchange:) }
+
+    it { is_expected.to eq(Renderer.render(post.body)) }
 
     context "when not saved" do
+      let!(:post) { build(:post, exchange:) }
 
-      let!(:post) { build(:post, exchange: discussion) }
+      before { allow(Renderer).to receive(:render) }
 
       it "parses the post" do
-        Sugar::PostRenderer::Renderer.should_receive(:new).exactly(1).times
-          .and_return { double(:to_html => "<p>Test</p>") }
         post.body_html
+        expect(Renderer).to have_received(:render).once
       end
-
     end
 
     context "when body_html has been set" do
+      let!(:post) do
+        create(:post, exchange:, body_html: "<p>Test</p>")
+      end
 
-      let!(:post) { create(:post, exchange: discussion, body_html: "<p>Test</p>") }
+      before { allow(Renderer).to receive(:render) }
 
       it "uses the cached version" do
-        Sugar::PostRenderer::Renderer.should_receive(:new).exactly(0).times
         post.body_html
+        expect(Renderer).to have_received(:render).exactly(0).times
       end
     end
 
     context "when body_html hasn't been set" do
+      before do
+        allow(Renderer).to(receive(:render).and_return("<p>Test</p>"))
+      end
 
       it "parses the post" do
         post.body_html = nil
-        Sugar::PostRenderer::Renderer.should_receive(:new).exactly(1).times
-          .and_return { double(:to_html => "<p>Test</p>") }
         post.body_html
+        expect(Renderer).to have_received(:render).once
       end
-
     end
 
+    context "when in non-development environment" do
+      let!(:post) do
+        create(:post, exchange:, body_html: "<p>Test <em>HTML</em></p>")
+      end
+
+      before do
+        allow(Rails.env).to receive(:development?).and_return(false)
+      end
+
+      it "returns html_safe content" do
+        expect(post.body_html).to be_html_safe
+      end
+    end
   end
 
   describe "#edited?" do
-
     subject { post.edited? }
 
     context "when post hasn't been edited" do
-      it { should be_false }
+      it { is_expected.to be(false) }
     end
 
     context "when post has been edited" do
-      let(:post) { create(:post, created_at: 5.minutes.ago, edited_at: 2.minutes.ago) }
-      it { should be_true }
+      let(:post) do
+        create(:post, created_at: 5.minutes.ago, edited_at: 2.minutes.ago)
+      end
+
+      it { is_expected.to be(true) }
     end
 
     context "when post has been edited less than five seconds ago" do
-      let(:post) { create(:post, created_at: 14.seconds.ago, edited_at: 10.seconds.ago) }
-      it { should be_false }
-    end
+      let(:post) do
+        create(:post, created_at: 14.seconds.ago, edited_at: 10.seconds.ago)
+      end
 
+      it { is_expected.to be(false) }
+    end
   end
 
   describe "#editable_by?" do
-    specify { post.editable_by?(post.user).should be_true }
-    specify { post.editable_by?(moderator).should be_true }
-    specify { post.editable_by?(admin).should be_true }
-    specify { post.editable_by?(user).should be_false }
-    specify { post.editable_by?(user_admin).should be_false }
-    specify { post.editable_by?(nil).should be_false }
+    specify { expect(post.editable_by?(post.user)).to be(true) }
+    specify { expect(post.editable_by?(create(:user, :moderator))).to be(true) }
+    specify { expect(post.editable_by?(create(:user, :admin))).to be(true) }
+    specify { expect(post.editable_by?(user)).to be(false) }
+    specify { expect(post.editable_by?(nil)).to be(false) }
+
+    specify do
+      expect(post.editable_by?(create(:user, :user_admin))).to be(false)
+    end
   end
 
   describe "#viewable_by?" do
+    specify { expect(post.viewable_by?(user)).to be(true) }
 
-    context "when it isn't trusted" do
-      specify { post.viewable_by?(user).should be_true }
+    context "when public browsing is on" do
+      before { B3S.config.public_browsing = true }
+
+      specify { expect(post.viewable_by?(nil)).to be(true) }
     end
 
-    context "when it is trusted" do
-      specify { trusted_post.viewable_by?(user).should be_false }
-      specify { trusted_post.viewable_by?(trusted_user).should be_true }
-    end
+    context "when public browsing is off" do
+      before { B3S.config.public_browsing = false }
 
-    context "and public browsing is on" do
-      before { Sugar.config(:public_browsing, true) }
-      specify { post.viewable_by?(nil).should be_true }
+      specify { expect(post.viewable_by?(nil)).to be(false) }
     end
-
-    context "and public browsing is of" do
-      before { Sugar.config(:public_browsing, false) }
-      specify { post.viewable_by?(nil).should be_false }
-    end
-
   end
 
   describe "#mentions_users?" do
-
     subject { post.mentions_users? }
 
     context "when it doesn't mention users" do
-      it { should be_false }
+      it { is_expected.to be(false) }
     end
 
     context "when it mentions users" do
-      let(:post) { mentioning_post }
-      it { should be_true }
-    end
+      let(:mentioned_users) do
+        ["eléktronaut", "#1", "With space"].map do |u|
+          create(:user, username: u)
+        end
+      end
 
+      let(:post) do
+        create(
+          :post,
+          body: mentioned_users.map do |u|
+                  "@#{u.username.downcase}"
+                end.join(" and ")
+        )
+      end
+
+      it { is_expected.to be(true) }
+    end
   end
 
   describe "#mentioned_users" do
-
     subject { post.mentioned_users }
 
     context "when it doesn't mention users" do
-      it { should == [] }
+      it { is_expected.to eq([]) }
     end
 
     context "when it mentions users" do
-      let(:post) { mentioning_post }
-      it { should =~ mentioned_users }
-    end
+      let(:mentioned_users) do
+        ["eléktronaut", "#1", "With space"].map do |u|
+          create(:user, username: u)
+        end
+      end
+      let(:post) do
+        create(
+          :post,
+          body: mentioned_users.map do |u|
+                  "@#{u.username.downcase}"
+                end.join(" and ")
+        )
+      end
 
-  end
-
-  describe "#update_trusted_status" do
-    subject { post }
-
-    context "when in a regular discussion" do
-      let(:post) { create(:post, exchange: discussion) }
-      its(:trusted?) { should be_false }
-      its(:conversation?) { should be_false }
-    end
-
-    context "when in a trusted discussion" do
-      let(:post) { create(:post, exchange: trusted_discussion) }
-      its(:trusted?) { should be_true }
+      it { is_expected.to match_array(mentioned_users) }
     end
   end
 
-  describe "#render_html" do
-    context "when skip_html is false" do
-      before { discussion }
+  describe "preprocessing on save" do
+    let!(:exchange) { create(:discussion) }
+
+    context "when skip_preprocess is false" do
       it "parses the post" do
-        Sugar::PostRenderer::Renderer.should_receive(:new).exactly(1).times
-          .and_return { double(:to_html => "<p>Test</p>") }
-        create(:post, exchange: discussion)
+        allow(Renderer).to receive(:render).and_call_original
+        create(:post, exchange:)
+        expect(Renderer).to have_received(:render).at_least(:once)
       end
     end
 
-    context "when skip_html is true" do
-      before { discussion }
-      it "parses the post" do
-        Sugar::PostRenderer::Renderer.should_receive(:new).exactly(0).times
-        create(:post, skip_html: true, exchange: discussion)
+    context "when skip_preprocess is true" do
+      it "does not call the renderer in the create callback" do
+        allow(Renderer).to receive(:render).and_call_original
+        post = build(:post, skip_preprocess: true, exchange:)
+        post.run_callbacks(:save) { false }
+        expect(Renderer).not_to have_received(:render)
       end
     end
   end
 
-  describe "#flag_conversation" do
-    subject { post }
+  describe "#preprocess!" do
+    let!(:exchange) { create(:discussion) }
+    let(:post) { build(:post, exchange:, body: "[img]http://example.com/a.png[/img]") }
 
-    context "when in a conversation" do
-      let(:post) { create(:post, exchange: conversation) }
-      its(:conversation?) { should be_true }
+    before do
+      allow(ImageFetcher).to receive(:fetch).and_return("fetched body")
+      allow(Renderer).to receive(:render).and_return("<p>rendered</p>")
     end
 
-    context "when in a regular discussion" do
-      let(:post) { create(:post, exchange: discussion) }
-      its(:conversation?) { should be_false }
+    it "fetches images into the body" do
+      post.preprocess!
+      expect(post.body).to eq("fetched body")
+    end
+
+    it "renders the body html" do
+      post.preprocess!
+      expect(post[:body_html]).to eq("<p>rendered</p>")
+    end
+
+    it "sets skip_preprocess" do
+      expect { post.preprocess! }.to change(post, :skip_preprocess).to(true)
+    end
+
+    it "does not fetch images again on save" do
+      post.preprocess!
+      post.save
+      expect(ImageFetcher).to have_received(:fetch).once
     end
   end
 
   describe "#set_edit_timestamp" do
-    subject { post }
-
     context "when edited_at is set" do
       let(:timestamp) { 2.days.ago }
       let(:post) { create(:post, edited_at: timestamp) }
-      its(:edited_at) { should == timestamp }
+
+      specify { expect(post.edited_at).to be_within(1.second).of(timestamp) }
     end
 
     context "when edited_at isn't set" do
-      before { Time.stub!(:now).and_return(Time.parse("Oct 22 2012")) }
-      its(:edited_at) { should == Time.now }
+      before do
+        allow(Time).to receive(:now)
+          .and_return(Time.zone.parse("Oct 22 2012"))
+      end
+
+      specify { expect(post.edited_at).to eq(Time.now.utc) }
     end
   end
 
   describe "#define_relationship" do
-
     context "when it belongs to a discussion" do
-      before { discussion }
+      let!(:exchange) { create(:discussion) }
+
       it "defines a relationship between the discussion and the poster" do
-        DiscussionRelationship.should_receive(:define).exactly(1).times
-          .with(user, discussion, participated: true)
-        create(:post, user: user, exchange: discussion)
+        allow(DiscussionRelationship).to receive(:define)
+        create(:post, user:, exchange:)
+        expect(DiscussionRelationship).to(
+          have_received(:define).once.with(user, exchange, participated: true)
+        )
       end
     end
 
     context "when it belongs to a conversation" do
-      before { conversation }
+      let!(:exchange) { create(:conversation) }
+
       it "does not define a relationship" do
-        DiscussionRelationship.should_receive(:define).exactly(0).times
-        create(:post, exchange: conversation)
+        allow(DiscussionRelationship).to receive(:define)
+        create(:post, exchange:)
+        expect(DiscussionRelationship).not_to have_received(:define)
       end
     end
   end
 
   describe "#update_exchange" do
-    subject { post.exchange }
-    its(:last_poster_id) { should == post.user_id }
-    its(:last_post_at) { should == post.created_at }
-  end
+    subject(:exchange) { post.exchange }
 
+    specify { expect(exchange.last_poster_id).to eq(post.user_id) }
+    specify { expect(exchange.last_post_at).to eq(post.created_at) }
+  end
 end

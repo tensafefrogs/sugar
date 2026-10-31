@@ -1,23 +1,26 @@
-<%
-  add_body_class "login"
-  @page_title = "Password Reset"
-%>
+<% content_for(:body_class, "login") %>
+<% content_for(:page_title, "Password Reset") %>
 
 <h2 class="section">
-  <%= link_to "Login", login_users_path %> &raquo;
-  <%= link_to "Password Reset", password_reset_users_path %>
+  <%= link_to "Login", new_session_path %> &raquo;
+  <%= link_to "Password Reset", password_reset_path(token: @token) %>
 </h2>
 
 <div id="login">
-  <%= form_for(@user, url: password_reset_path(@password_reset_token, token: @password_reset_token.token), :class => 'form') do |f| %>
+  <%= form_for(@user,
+               url: password_reset_path(token: @token),
+               class: 'form') do |f| %>
     <fieldset>
       <%= f.label :password %>
       <%= f.password_field :password %>
-      <%= f.label :confirm_password %>
-      <%= f.password_field :confirm_password %>
+      <%= f.label :password_confirmation %>
+      <%= f.password_field :password_confirmation %>
     </fieldset>
+
     <fieldset>
-      <button type="submit">Change Password</button> or <%= link_to "Return to login screen", login_users_path %>
+      <button type="submit">Change Password</button>
+      <span>or</span>
+      <%= link_to "Return to login screen", new_session_path %>
     </fieldset>
   <% end %>
 </div>

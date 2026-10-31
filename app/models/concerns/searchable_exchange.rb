@@ -1,32 +1,29 @@
+# frozen_string_literal: true
+
 module SearchableExchange
   extend ActiveSupport::Concern
+  include PgSearch::Model
 
   included do
-    searchable do
-      text    :title
-      string  :type
-      integer :poster_id
-      integer :last_poster_id
-      integer :category_id
-      boolean :trusted
-      boolean :closed
-      boolean :sticky
-      time    :created_at
-      time    :updated_at
-      time    :last_post_at
-    end
+    pg_search_scope(
+      :search_by_title,
+      against: :title,
+      ignoring: :accents,
+      using: {
+        tsearch: {
+          negation: true,
+          dictionary: "english",
+          tsvector_column: "tsv"
+        }
+      }
+    )
   end
 
   module ClassMethods
-    def search_results(query, options={})
-      search = Discussion.search do
-        fulltext query
-        with     :trusted, false unless (options[:user] && options[:user].trusted?)
-        order_by :last_post_at, :desc
-        paginate :page => options[:page], :per_page => Exchange.per_page
-      end
-      search.results
+    def search(search_query)
+      search_by_title(search_query)
+        .reorder("last_post_at DESC")
+        .for_view
     end
   end
-
 end

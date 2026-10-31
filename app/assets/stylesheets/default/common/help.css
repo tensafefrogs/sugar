@@ -1,0 +1,98 @@
+.help_page {
+  box-sizing: border-box;
+
+  font-size: 18px;
+  line-height: 1.5;
+  max-width: 900px;
+  padding: 60px 0px;
+  margin: 0px auto;
+
+  @mixin mobile {
+    padding: 40px 20px;
+  }
+
+  h1,
+  h2,
+  h3,
+  p,
+  ul,
+  ol,
+  figure {
+    margin: 0px 0px 30px 0px;
+    &:last-child {
+      margin-bottom: 0px;
+    }
+  }
+
+  .box {
+    background: #f3f1e9;
+    margin: 60px -30px;
+    border: 1px solid #dedcd4;
+    padding: 30px;
+
+    @mixin mobile {
+      margin: 60px -15px;
+      padding: 15px;
+    }
+  }
+
+  figure {
+    padding: 0px;
+    margin: 60px auto;
+    img {
+      max-width: 100%;
+      height: auto;
+    }
+    figcaption {
+      margin-top: 8px;
+      color: #666;
+    }
+  }
+
+  h1 {
+    font-size: 64px;
+    @mixin mobile {
+      font-size: 36px;
+    }
+  }
+
+  h2 {
+    font-size: 24px;
+  }
+
+  h3 {
+    font-size: 18px;
+  }
+
+  h2,
+  h3 {
+    margin-top: 60px;
+    &:first-child {
+      margin-top: 0px;
+    }
+  }
+
+  ul {
+    list-style-type: disc;
+    padding-left: 18px;
+  }
+
+  img {
+    max-width: 100%;
+    height: auto;
+  }
+
+  table {
+    border-collapse: collapse;
+    border: 1px solid #ddd;
+    width: 100%;
+  }
+
+  td {
+    border: 1px solid #ddd;
+    padding: 2px 10px 2px 2px;
+    &.short {
+      width: 150px;
+    }
+  }
+}

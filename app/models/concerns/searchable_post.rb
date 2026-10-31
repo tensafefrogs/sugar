@@ -1,34 +1,37 @@
+# frozen_string_literal: true
+
 module SearchablePost
   extend ActiveSupport::Concern
+  include PgSearch::Model
 
   included do
-    searchable do
-      text    :body
-      integer :user_id
-      integer :exchange_id
-      time    :created_at
-      time    :updated_at
-      boolean :trusted
-      boolean :conversation
-    end
+    pg_search_scope(
+      :search_by_body,
+      against: :body,
+      ignoring: :accents,
+      using: {
+        tsearch: {
+          negation: true,
+          dictionary: "english",
+          tsvector_column: "tsv"
+        }
+      }
+    )
   end
 
   module ClassMethods
-    def search_results(query, options={})
-      search = Post.search do
-        fulltext query
-        with :trusted, false unless (options[:user] && options[:user].trusted?)
-        if options[:exchange]
-          with :exchange_id, options[:exchange].id
-        else
-          with :conversation,  false
-        end
-        order_by :created_at, :desc
-        paginate :page => options[:page], :per_page => Post.per_page
-      end
-      search.results
+    def search(search_query)
+      where(conversation: false, deleted: false)
+        .search_by_body(search_query)
+        .reorder("created_at DESC")
+        .for_view_with_exchange
+    end
+
+    def search_in_exchange(search_query)
+      where(deleted: false)
+        .search_by_body(search_query)
+        .for_view
+        .reorder("created_at DESC")
     end
   end
-
-
 end

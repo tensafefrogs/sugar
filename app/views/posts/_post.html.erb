@@ -1,35 +1,31 @@
-<%
-  # Options
-  posts              ||= false
-  discussion         ||= false
-  functions          ||= false
-  permalink          ||= false
-  post_distance      ||= false
-  title              ||= false
-  preview            ||= false
+<%# locals: (post:, functions: false, title: false, hide_nsfw: false) %>
 
-  previous_post      ||= nil
--%>
-
-  <% if post_distance && previous_post %>
-    <% if (post.created_at - previous_post.created_at) >= 12.hours %>
-      <div class="post_distance"><%= distance_of_time_in_words(post.created_at, previous_post.created_at) %> later&hellip;</div>
-    <% elsif (previous_post.created_at - post.created_at) >= 12.hours %>
-      <div class="post_distance"><%= distance_of_time_in_words(post.created_at, previous_post.created_at) %> earlier&hellip;</div>
-    <% end %>
-  <% end %>
-
-  <div class="post post_by_user<%= post.user.id %><%= " me_post" if post.me_post? %>" id="post-<%= post.id %>" data-user_id="<%= post.user.id %>" data-exchange_id="<%= post.exchange_id %>">
-
+<% if post.deleted? %>
+  <div class="post" id="post-<%= post.id %>" data-post-id="<%= post.id %>">
+    <div class="deleted-post">
+      This post has been deleted.
+    </div>
+  </div>
+<% else %>
+  <div
+    class="post post_by_user<%= post.user.id %><%= " me_post" if post.me_post? && !post.deleted? %>"
+    id="post-<%= post.id %>"
+    data-user-id="<%= post.user.id %>"
+    data-exchange-id="<%= post.exchange_id %>"
+    data-exchange-type="<%= post.exchange.type %>"
+    data-post-id="<%= post.id %>"
+  >
     <% if title %>
       <div class="title">
         <% if post.exchange.labels? %>
           <span class="labels">[<%= post.exchange.labels.join(',') %>]</span>
         <% end %>
-        <%= link_to post.exchange.title, paged_discussion_path(:id => post.exchange, :page => post.page, :anchor => "post-#{post.id}") %>
+
+        <%= link_to(post.exchange.title, post_path(post)) %>
+
         <small>
-          Started by <%= profile_link(post.exchange.poster) %>,
-          Last active <%= time_tag post.exchange.last_post_at, :class => 'relative' %>,
+          Started by <%= profile_link(post.exchange.poster) %>, Last active
+          <%= time_tag post.exchange.last_post_at, class: "relative" %>,
           <%= post.exchange.posts_count %> posts
         </small>
       </div>
@@ -42,41 +38,39 @@
     <% if post.me_post? %>
       <div class="me_post_content">
         <div class="avatar"><%= avatar_image_tag(post.user) %></div>
+
         <div class="body" id="postBody-<%= post.id %>">
-          <span class="content"><%= meify post.body, post.user %></span>
-          <% if preview %>
-            <time class="relative date">Preview</time>
-          <% else %>
-            <%= time_tag post.created_at, :class => 'relative date' %>
-          <% end %>
+          <span class="content">
+            <%= format_post post.body_html, post.user %>
+          </span>
+
+          <%= post_timestamp_link(post) %>
         </div>
       </div>
-
     <% else %>
       <div class="post_info">
-        <a name="post-<%= post.id %>" class="anchor"></a>
-        <span class="avatar">
-          <%= avatar_image_tag(post.user) %>
-        </span>
+        <span class="avatar"><%= avatar_image_tag(post.user) %></span>
         <span class="username"><%= profile_link(post.user) %></span>
-        <% if preview %>
-          <time class="relative date">Preview</time>
-        <% else %>
-          <%= time_tag post.created_at, :class => 'relative date' %>
-        <% end %>
-        <% if permalink %>
-          <span class="permalink">
-            <%= link_to "#", paged_discussion_path(:id => (discussion||post.exchange), :page => post_page(post), :anchor => "post-#{post.id}"), :title => "Permalink to this post" %>
-          </span>
-        <% end %>
+
+        <%= post_timestamp_link(post) %>
       </div>
       <div class="body" id="postBody-<%= post.id %>">
         <div class="content">
-          <%= post.user.html_disabled? ? h(post.body).gsub(/\n/,'<br />') : meify(post.body_html, post.user) %>
+          <% if post.exchange.nsfw && hide_nsfw %>
+            <div class="spoiler nsfw">
+              <%= format_post(post.body_html, post.user) %>
+            </div>
+          <% else %>
+            <%= format_post(post.body_html, post.user) %>
+          <% end %>
         </div>
-        <% if post.edited? %><div class="edited">
-          Edited <%= time_tag post.edited_at, :class => 'relative' %>
-        </div><% end %>
+
+        <% if post.edited? %>
+          <div class="edited">
+            Edited <%= time_tag post.edited_at, class: "relative" %>
+          </div>
+        <% end %>
       </div>
     <% end %>
   </div>
+<% end %>

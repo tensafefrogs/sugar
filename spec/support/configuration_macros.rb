@@ -1,6 +1,7 @@
+# frozen_string_literal: true
+
 module ConfigurationMacros
-  def configure(configuration={})
-    Sugar.configure(configuration)
-    Sugar.save_config!
+  def configure(configuration = {})
+    B3S.config.update(configuration)
   end
 end

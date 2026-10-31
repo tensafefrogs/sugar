@@ -1,29 +1,25 @@
-# encoding: utf-8
+# frozen_string_literal: true
 
 # Controller for redirecting old URLs
 class VanillaController < ApplicationController
-
   # /vanilla/?page=2
-  # /vanilla/?CategoryID=11
   def discussions
     headers["Status"] = "301 Moved Permanently"
-    if params[:CategoryID]
-      redirect_to category_url(params[:CategoryID])
-    else
-      redirect_to paged_discussions_path(:page => (params[:page] || 1))
-    end
+    redirect_to paged_discussions_path(page: params[:page] || 1)
   end
 
   # /vanilla/comments.php?DiscussionID=13892&page=6
   def discussion
     headers["Status"] = "301 Moved Permanently"
-    redirect_to paged_discussion_url(:id => params[:DiscussionID], :page => params[:page])
+    redirect_to polymorphic_url(
+      Exchange.find(params.expect(:DiscussionID)),
+      page: params[:page]
+    )
   end
 
   # /vanilla/account.php?u=4
   def user
     headers["Status"] = "301 Moved Permanently"
-    redirect_to user_url(:id => params[:u])
+    redirect_to user_profile_url(params[:u])
   end
-
 end

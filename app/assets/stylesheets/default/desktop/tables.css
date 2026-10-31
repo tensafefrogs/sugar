@@ -1,0 +1,25 @@
+th {
+  font-weight: bold;
+}
+
+table.list {
+  border-collapse: collapse;
+  border-top: 1px solid #e2dcbf;
+  width: 100%;
+
+  td,
+  th {
+    padding: 7px 20px 7px 0;
+    border-bottom: 1px solid #e2dcbf;
+    white-space: nowrap;
+  }
+
+  th {
+    color: #321;
+    background: #f5f1e0;
+  }
+
+  td {
+    color: #6f5a43;
+  }
+}

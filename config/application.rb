@@ -1,58 +1,66 @@
-# encoding: utf-8
+# frozen_string_literal: true
 
-require File.expand_path('../boot', __FILE__)
+require_relative "boot"
 
-require 'rails/all'
+require File.expand_path("../app/themes/theme", __dir__)
 
-if defined?(Bundler)
-  Bundler.require(:default, Rails.env)
-  Bundler.require([Rails.env, 'mac'].join('_')) if RUBY_PLATFORM =~ /darwin/
-  Bundler.require(:newrelic) if File.exists?(File.join(File.dirname(__FILE__), 'newrelic.yml'))
-end
+require "rails"
+# Pick the frameworks you want:
+require "active_model/railtie"
+require "active_job/railtie"
+require "active_record/railtie"
+# require "active_storage/engine"
+require "action_controller/railtie"
+require "action_mailer/railtie"
+# require "action_mailbox/engine"
+# require "action_text/engine"
+require "action_view/railtie"
+require "action_cable/engine"
+# require "rails/test_unit/railtie"
 
+# Require the gems listed in Gemfile, including any gems
+# you've limited to :test, :development, or :production.
+Bundler.require(*Rails.groups)
 
-module Sugar
+module B3s
   class Application < Rails::Application
-    # Settings in config/environments/* take precedence over those specified here.
-    # Application configuration should go into files in config/initializers
-    # -- all .rb files in that directory are automatically loaded.
+    # Initialize configuration defaults for originally generated Rails version.
+    config.load_defaults 8.1
 
-    # Custom directories with classes and modules you want to be autoloadable.
-    config.autoload_paths += %W(
-      #{config.root}/lib
-      #{config.root}/app/models/concerns
-    )
+    # Please, add to the `ignore` list any other `lib` subdirectories that do
+    # not contain `.rb` files, or that should not be reloaded or eager loaded.
+    # Common ones are `templates`, `generators`, or `middleware`, for example.
+    config.autoload_lib(ignore: %w[assets tasks])
 
-    # Only load the plugins named here, in the order given (default is alphabetical).
-    # :all can be used as a placeholder for all plugins not explicitly named.
-    # config.plugins = [ :exception_notification, :ssl_requirement, :all ]
+    # Configuration for the application, engines, and railties goes here.
+    #
+    # These settings can be overridden in specific environments using the files
+    # in config/environments, which are processed later.
+    #
+    # config.time_zone = "Central Time (US & Canada)"
+    # config.eager_load_paths << Rails.root.join("extras")
 
-    # Activate observers that should always be running.
-    config.active_record.observers = :post_observer
+    # Don't generate system test files.
+    config.generators.system_tests = nil
 
-    # Set Time.zone default to the specified zone and make Active Record auto-convert to this zone.
-    # Run "rake -D time" for a list of tasks for finding time zone names. Default is UTC.
-    config.time_zone = 'UTC'
+    config.active_record.schema_format = :sql
 
-    # The default locale is :en and all translations from config/locales/*.rb,yml are auto loaded.
-    # config.i18n.load_path += Dir[Rails.root.join('my', 'locales', '*.{rb,yml}').to_s]
-    # config.i18n.default_locale = :de
+    config.solid_queue.connects_to = { database: { writing: :queue } }
 
-    # JavaScript files you want as :defaults (application.js is always included).
-    # config.action_view.javascript_expansions[:defaults] = %w(jquery rails)
+    config.semantic_logger.application = "b3s"
 
-    # Configure the default encoding used in templates for Ruby 1.9.
-    config.encoding = "utf-8"
+    $stdout.sync = true unless Rails.env.test?
 
-    # Configure sensitive parameters which will be filtered from the log file.
-    config.filter_parameters += [:password, :drawing]
+    config.rails_semantic_logger.appenders do |appenders|
+      appenders.add(file_name: config.paths["log"].first, formatter: :color) if Rails.env.local?
 
-    # Tag log entries with uuid
-    config.log_tags = [:uuid]
-
-    # Enable the asset pipeline
-    config.assets.enabled = true
+      unless Rails.env.test?
+        appenders.add(
+          io: $stdout,
+          formatter: Rails.env.local? ? :color : :json,
+          filter: ->(log) { log.name != "Rails::HealthController" }
+        )
+      end
+    end
   end
 end
-
-require Rails.root.join('lib/sugar.rb')

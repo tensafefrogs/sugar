@@ -1,19 +1,45 @@
-# encoding: utf-8
+# frozen_string_literal: true
 
 module UserScopes
   extend ActiveSupport::Concern
 
-  included do
-    scope :active,          -> { where(:activated => true, :banned => false) }
-    scope :by_username,     -> { order("username ASC") }
-    scope :banned,          -> { where("banned = ? OR banned_until > ?", true, Time.now) }
-    scope :online,          -> { active.where("last_active > ?", 15.minutes.ago) }
-    scope :admins,          -> { active.where("admin = ? OR user_admin = ? OR moderator = ?", true, true, true) }
-    scope :xbox_users,      -> { active.where("gamertag IS NOT NULL OR gamertag != ''") }
-    scope :social,          -> { active.where("(twitter IS NOT NULL AND twitter != '') OR (instagram IS NOT NULL AND instagram != '') OR (flickr IS NOT NULL AND flickr != '')") }
-    scope :recently_joined, -> { active.order("created_at DESC") }
-    scope :top_posters,     -> { active.where("public_posts_count > 0").order("public_posts_count DESC") }
-    scope :trusted,         -> { active.where("trusted = ? OR admin = ? OR user_admin = ? OR moderator = ?", true, true, true, true) }
-  end
+  module ClassMethods
+    def active_and_memorialized
+      where(status: %i[active memorialized])
+    end
 
+    def admins
+      active_and_memorialized.where(
+        "admin = ? OR user_admin = ? OR moderator = ?",
+        true,
+        true,
+        true
+      )
+    end
+
+    def temporarily_deactivated
+      where(status: %i[hiatus time_out])
+    end
+
+    def deactivated
+      where.not(status: %i[active memorialized])
+    end
+
+    def by_username
+      order(:username)
+    end
+
+    def online
+      active_and_memorialized.where("last_active > ?", 15.minutes.ago)
+    end
+
+    def recently_joined
+      active_and_memorialized.order(created_at: :desc)
+    end
+
+    def top_posters
+      active_and_memorialized.where("public_posts_count > 0")
+                             .order(public_posts_count: :desc)
+    end
+  end
 end

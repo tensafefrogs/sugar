@@ -1,0 +1,178 @@
+.avatar-image {
+  width: 32px;
+  height: 32px;
+}
+
+.users_list,
+.user-links-list {
+  .label,
+  .username,
+  .user-links {
+    font-size: 1.2em;
+  }
+  .label,
+  .username {
+    font-weight: bold;
+  }
+  .user-links {
+    ul {
+      margin: 0px;
+    }
+    li {
+      margin-bottom: 8px;
+      &:last-child {
+        margin: 0px;
+      }
+    }
+  }
+}
+
+.banned {
+  color: #d00;
+  font-weight: bold;
+}
+span.admin {
+  color: #062;
+}
+
+#userinfo {
+  width: 425px;
+  float: left;
+  position: absolute;
+}
+
+.user_profile {
+  .avatar_and_name {
+    margin-left: 42px;
+    font-size: 1.2em;
+    .avatar-image {
+      float: left;
+      margin-left: -42px;
+    }
+  }
+  .username {
+    font-weight: bold;
+    font-size: 1.1em;
+  }
+  small {
+    font-size: 1em;
+    color: #888;
+  }
+  .description {
+    margin-bottom: 1em;
+    max-width: 100%;
+    overflow: hidden;
+  }
+  .grant_invites {
+    font-size: 1.2em;
+    margin-bottom: 0;
+  }
+  .posts_and_discussions {
+    font-size: 1.2em;
+    a {
+      font-weight: bold;
+    }
+  }
+  .user-links,
+  .invitees {
+    border-top: 1px solid $c-border;
+    padding-top: 1em;
+    margin-bottom: 1em;
+    h3 {
+      font-weight: normal;
+      margin-bottom: 4px;
+      a {
+        font-weight: bold;
+      }
+    }
+  }
+  .invitees li a {
+    font-weight: bold;
+    font-size: 1.3em;
+  }
+  .welcome {
+    font-size: 1.3em;
+    margin-top: -19px;
+    max-width: 600px;
+    margin-left: 10px;
+    h2 {
+      margin-bottom: 0;
+      color: #544;
+    }
+    a {
+      text-decoration: underline;
+    }
+  }
+
+  #userPosts {
+    margin-left: 437px;
+    border-left: 1px solid $c-border;
+    padding-left: 12px;
+    padding-top: 15px;
+    .posts {
+      border-top: 0;
+      .post:first-child {
+        padding-top: 0;
+        .title {
+          padding-top: 0;
+          background-position: 0 7px;
+        }
+      }
+      .post:last-child {
+        border-bottom: 0;
+      }
+    }
+  }
+}
+
+.user-links,
+.edit-user-links {
+  .user-link {
+    margin-bottom: 8px;
+    &:last-child {
+      margin-bottom: 0px;
+    }
+  }
+  .label {
+    font-weight: bold;
+  }
+  .link {
+    font-size: 1.2em;
+  }
+}
+
+.edit-user-links {
+  margin-bottom: 40px;
+  .list {
+    margin-bottom: 12px;
+    max-width: 800px;
+    .user-link {
+      display: flex;
+      border-bottom: 1px solid $c-border;
+      margin: 0px;
+      padding: 8px 0px;
+      &.dragging {
+        border: none;
+      }
+    }
+    .drag-handle {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: move;
+      cursor: grab;
+      cursor: -moz-grab;
+      cursor: -webkit-grab;
+      font-size: 14px;
+      color: #888;
+      width: 40px;
+      margin-right: 12px;
+    }
+    .info {
+      flex-grow: 1;
+    }
+    .buttons {
+      align-self: center;
+    }
+  }
+}

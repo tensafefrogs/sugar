@@ -1,122 +1,103 @@
-# encoding: utf-8
+# frozen_string_literal: true
 
 class InvitesController < ApplicationController
+  requires_authentication except: [:accept]
+  requires_user except: [:accept]
+  requires_user_admin only: [:all]
 
-  requires_authentication :except => [:accept]
-  requires_user           :except => [:accept]
-  requires_user_admin     :only   => [:all]
+  before_action :find_invite, only: %i[destroy]
+  before_action :find_invite_by_token, only: %i[accept]
+  before_action :verify_available_invites, only: %i[new create]
 
-  respond_to :html, :mobile, :xml, :json
-
-  before_filter :find_invite,    :only => [:show, :edit, :update, :destroy]
-  before_filter :verify_invites, :only => [:new, :create]
-
-  # Show active invites
   def index
-    respond_with(@invites = @current_user.invites.active)
+    @invites = current_user.invites.active
   end
 
-  # Show everyone's invites
   def all
-    respond_with(@invites = Invite.active)
+    @invites = Invite.active
   end
 
-  # Accept an invite
   def accept
-    @invite = Invite.find_by_token(params[:id])
-    session[:invite_token] = nil
-    if @invite && @invite.expired?
-      @invite.destroy
-      flash[:notice] ||= "Your invite has expired!"
+    session[:invite_token] = session_invite_token(@invite)
+    if expire_invite(@invite)
+      flash[:notice] ||= t("invite.expired")
     elsif @invite
-      session[:invite_token] = @invite.token
-      redirect_to new_user_by_token_url(:token => @invite.token) and return
+      redirect_to new_registration_by_token_url(token: @invite.token)
+      return
     else
-      flash[:notice] ||= "That's not a valid invite!"
+      flash[:notice] ||= t("invite.invalid")
     end
-    redirect_to login_users_url and return
+    redirect_to new_session_url
   end
 
-  # Create a new invite
   def new
-    respond_with(@invite = @current_user.invites.new)
+    @invite = current_user.invites.new
   end
 
-  # Create a new invite
   def create
-    @invite = @current_user.invites.create(invite_params)
-    if @invite.valid?
-      begin
-        Mailer.invite(@invite, accept_invite_url(:id => @invite.token)).deliver
-        flash[:notice] = "Your invite has been sent to #{@invite.email}"
-      rescue Net::SMTPFatalError, Net::SMTPSyntaxError
-        flash[:notice] = "There was a problem sending your invite to #{@invite.email}, it has been cancelled."
-        @invite.destroy
-      end
-      redirect_to invites_url and return
+    @invite = create_invite(invite_params)
+
+    if @invite.invalid?
+      render :new
+      return
+    elsif deliver_invite!(@invite)
+      flash[:notice] = t("invite.sent", email: @invite.email)
     else
-      render :action => :new
+      flash[:notice] = t("invite.failed", email: @invite.email)
     end
+    redirect_to invites_url
   end
 
-  # def show
-  # 	if verify_user(:user => @invite.user, :user_admin => true)
-  # 		render :action => :edit
-  # 	end
-  # end
-  #
-  # def edit
-  # 	verify_user(:user => @invite.user, :user_admin => true)
-  # end
-  #
-  # def update
-  # 	if verify_user(:user => @invite.user, :user_admin => true)
-  # 		if @invite.update_attributes(params[:invite])
-  # 			flash[:notice] = "Invite was updated"
-  # 			redirect_to invites_url and return
-  # 		else
-  # 			render :action => :edit
-  # 		end
-  # 	end
-  # end
-
-  # Delete an invite
   def destroy
-    if verify_user(:user => @invite.user, :user_admin => true)
-      @invite.destroy
-      flash[:notice] = "Your invite has been cancelled."
-      redirect_to invites_url and return
-    end
+    return unless verify_user(user: @invite.user, user_admin: true)
+
+    @invite.destroy
+    flash[:notice] = t("invite.cancelled")
+    redirect_to invites_url
   end
 
   private
 
+  def create_invite(attrs)
+    current_user.invites.create(attrs)
+  end
+
+  def deliver_invite!(invite)
+    Mailer.invite(invite, accept_invite_url(id: invite.token)).deliver_later
+  rescue Net::SMTPFatalError, Net::SMTPSyntaxError
+    @invite.destroy
+    false
+  end
+
+  def expire_invite(invite)
+    return false unless invite&.expired?
+
+    @invite.destroy
+  end
+
   def invite_params
-    params.require(:invite).permit(:email, :message)
+    params.expect(invite: %i[email message])
   end
 
-  # Finds the requested invite
   def find_invite
-    begin
-      @invite = Invite.find(params[:id])
-    rescue ActiveRecord::RecordNotFound
-      render_error 404 and return
-    end
+    @invite = Invite.find(params.expect(:id))
   end
 
-  # Verifies that the user has available invites
-  def verify_invites
-    unless @current_user && @current_user.available_invites?
-      respond_to do |format|
-        format.any(:html, :mobile) do
-          flash[:notice] = "You don't have any invites!"
-          redirect_to online_users_url and return
-        end
-        format.any(:xml, :json) do
-          render :text => "You don't have any invites!", :status => :method_not_allowed
-        end
-      end
-    end
+  def find_invite_by_token
+    @invite = Invite.find_by(token: params[:id])
   end
 
+  def session_invite_token(invite)
+    return unless invite
+    return if invite.expired?
+
+    invite.token
+  end
+
+  def verify_available_invites
+    return if current_user? && current_user.available_invites?
+
+    flash[:notice] = t("invite.no_invites")
+    redirect_to online_users_url
+  end
 end

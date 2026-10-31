@@ -1,69 +1,53 @@
-# encoding: utf-8
+# frozen_string_literal: true
 
 class Discussion < Exchange
+  class InvalidExchange < StandardError; end
+
   include SearchableExchange
   include Viewable
 
-  has_many   :discussion_relationships, :dependent => :destroy
-  belongs_to :category, :counter_cache => true
+  has_many :discussion_relationships, dependent: :destroy
 
-  validates_presence_of :category_id
-
-  # Flag for trusted status, which will update after save if it has been changed.
-  attr_accessor :update_trusted
-
-  scope :with_category, -> { includes(:poster, :last_poster, :category) }
-  scope :for_view,      -> { sorted.with_posters.with_category }
-
-  validate   :inherit_trusted_from_category
-  after_save :update_trusted_status
+  scope :for_view, -> { sorted.with_posters }
 
   class << self
-    # Scopes discussions popular in the last n days
-    def popular_in_the_last(days=7.days)
-      select('discussions.*, COUNT(posts.id) AS recent_posts_count')
-        .joins(:posts)
-        .where('posts.created_at > ?', days.ago)
-        .group('discussions.id')
-        .order('recent_posts_count DESC')
+    def popular_in_the_last(days = 7.days)
+      joins(:posts)
+        .where("posts.created_at > ?", days.ago)
+        .group("exchanges.id")
+        .order(Arel.sql("COUNT(posts.id) DESC"))
     end
   end
 
-  def participants
-    User.find_by_sql(
-      "SELECT u.*, MAX(p.created_at) AS last_post_at " +
-      "FROM users u, posts p " +
-      "WHERE p.exchange_id = #{self.id} AND p.user_id = u.id " +
-      "GROUP BY u.id "
-    )
-  end
+  # Converts a discussion to a conversation
+  def convert_to_conversation!
+    raise InvalidExchange unless valid?
 
-  # Returns true if the user can edit this discussion
-  def editable_by?(user)
-    (user && (user.moderator? || user == self.poster)) ? true : false
-  end
-
-  # Returns true if the user can post in this discussion
-  def postable_by?(user)
-    (user && (user.moderator? || !self.closed?)) ? true : false
-  end
-
-  private
-
-  def inherit_trusted_from_category
-    self.trusted = self.category.trusted if self.category
-    true
-  end
-
-  # Set trusted status on all posts and relationships on save
-  def update_trusted_status
-    if self.trusted_changed?
-      self.posts.update_all(:trusted => self.trusted?)
-      self.discussion_relationships.update_all(:trusted => self.trusted?)
-      self.participants.each do |user|
-        user.update_column(:public_posts_count, user.discussion_posts.where(trusted: false).count)
+    transaction do
+      update(type: "Conversation")
+      becomes(Conversation).tap do |conversation|
+        conversation.unlabel!
+        posts.update_all(conversation: true)
+        participants.each { |p| conversation.add_participant(p) }
+        discussion_relationships.destroy_all
       end
     end
   end
 
+  def participants
+    User.where(id: posts.select(:user_id))
+  end
+
+  def editable_by?(user)
+    return false unless user
+    return true if user.moderator?
+
+    moderators.include?(user)
+  end
+
+  def postable_by?(user)
+    return false unless user
+
+    user.moderator? || !closed?
+  end
 end

@@ -1,0 +1,27 @@
+#compose-toggle {
+  border-top: 1px solid #e2dcbf;
+  padding-top: 15px;
+  font-size: 1.3em;
+  font-weight: bold;
+}
+
+.compose {
+  border-top: 1px solid #e2dcbf;
+  padding-top: 15px;
+}
+
+#reply-tabs {
+  font-weight: bold;
+  font-size: 1.3em;
+  max-width: 600px;
+  li {
+    display: inline;
+    a {
+      padding: 2px 5px;
+    }
+    &.active a {
+      background: #05506d;
+      color: #fff;
+    }
+  }
+}

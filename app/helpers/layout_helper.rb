@@ -1,38 +1,57 @@
-# encoding: utf-8
+# frozen_string_literal: true
 
 module LayoutHelper
+  EMOTICONS = %w[
+    ziggy warm-smile toothy-smile big-smile sad crying nerd mad tongue-out
+    blank-stare blushing fml butthurt kisses good evil upso doh eye-roll
+    licking-lips deal-with-it
+  ].freeze
 
-  def add_body_class(*class_names)
-    @body_classes ||= []
-    @body_classes += [class_names].flatten # Should also work with arrays
+  def body_class
+    classes = (content_for(:body_class) || "").split(/\s+/)
+    classes << "with_sidebar" if content_for?(:sidebar)
+    classes.uniq.join(" ")
   end
 
-  def body_classes
-    @body_classes ||= []
-    @body_classes << 'with_sidebar' if content_for?(:sidebar) && !@body_classes.include?('with_sidebar')
-    @body_classes.uniq.join(' ')
+  def discussion_action?(action)
+    params[:controller] == "discussions" && params[:action] == action
   end
 
-  def search_mode_options
-    options = [['in discussions', search_path], ['in posts', search_posts_path]]
-    options << ['in this discussion', search_posts_discussion_path(@discussion)] if @discussion && @discussion.id
+  def frontend_configuration
+    { emoticons: enabled_emoticons,
+      amazonAssociatesId: B3S.config.amazon_associates_id,
+      uploads: true,
+      currentUserId: current_user&.id,
+      currentUser: current_user.try(&:as_json),
+      preferredFormat: current_user.try(&:preferred_format) }
+  end
+
+  def search_mode_options(exchange)
+    options = [["Discussions", search_path],
+               ["Posts", search_posts_path]]
+    if exchange&.id
+      options << ["This #{exchange.type.downcase}",
+                  polymorphic_path([:search, exchange, :posts])]
+    end
     options
   end
 
-  def header_tab(name, url, options={})
-    options[:section] ||= name.downcase.to_sym
-    options[:id]      ||= "#{options[:section]}_link"
-    options[:class]   ||= []
-    options[:class]   = [options[:class]] unless options[:class].kind_of?(Array)
+  def header_tab(name, url, options = {})
+    section = options[:section] || name.downcase.to_sym
 
-    classes = [options[:section].to_s] + options[:class]
-    classes << 'current' if @section == options[:section]
+    classes = [section.to_s] + Array(options[:class])
+    classes << "current" if respond_to?(:current_section) && section == current_section
 
-    content_tag(
-      :li,
-      link_to(name, url, :id => options[:id]),
-      :class => classes
-    )
+    tag.li(link_to(name, url, id: options[:id] || "#{section}_link"),
+           class: classes)
   end
 
+  private
+
+  def enabled_emoticons
+    EMOTICONS.filter_map do |name|
+      emoji = Emoji.find_by_alias(name)
+      { name:, image: emoji_path(emoji) } if emoji
+    end
+  end
 end

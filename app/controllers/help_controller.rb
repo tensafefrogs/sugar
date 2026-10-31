@@ -1,13 +1,15 @@
-# encoding: utf-8
+# frozen_string_literal: true
 
-# Controller for redirecting old URLs
 class HelpController < ApplicationController
+  requires_authentication only: %i[code_of_conduct]
+
   def index
-    redirect_to help_page_path('keyboard') and return
+    redirect_to keyboard_help_url
   end
 
-  def show
-    @page = params[:page].gsub(/[^\w\d_\-]/, '')
-    render :template => "help/#{@page}"
+  def code_of_conduct
+    @code_of_conduct = B3S.config.code_of_conduct
   end
+
+  def keyboard; end
 end

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Inviter
   extend ActiveSupport::Concern
 
@@ -7,67 +9,71 @@ module Inviter
     before_create :set_inviter
     after_create :expire_invite
 
-    belongs_to :inviter, :class_name => 'User'
-    has_many   :invitees, -> { order 'username ASC' }, class_name: 'User', foreign_key: 'inviter_id'
-    has_many   :invites, -> { order 'created_at ASC' }, dependent: :destroy
+    belongs_to :inviter,
+               class_name: "User",
+               optional: true
+
+    has_many :invitees,
+             -> { order :username },
+             class_name: "User",
+             foreign_key: "inviter_id",
+             inverse_of: :inviter,
+             dependent: :nullify
+
+    has_many :invites,
+             -> { order :created_at },
+             dependent: :destroy,
+             inverse_of: :user
   end
 
-  # Returns true if this user has invited someone.
   def invites?
-    self.invites.count > 0
+    invites.any?
   end
 
-  # Returns true if this user has invitees.
   def invitees?
-    self.invitees.count > 0
+    invitees.any?
   end
 
-  # Returns true if this user has invited someone or has invitees.
   def invites_or_invitees?
-    self.invites? || self.invitees?
+    invites? || invitees?
   end
 
-  # Returns true if this user can invite someone.
   def available_invites?
-    self.user_admin? || self.available_invites > 0
+    user_admin? || available_invites.positive?
   end
 
   # Number of remaining invites. User admins always have at least one invite.
   def available_invites
-     number = self[:available_invites]
-     self.user_admin? ? 1 : self[:available_invites]
+    user_admin? ? 1 : self[:available_invites]
   end
 
-  # Revokes invites from a user, default = 1. Pass :all as an argument to revoke all invites.
-  def revoke_invite!(number=1)
-    return self.available_invites if self.user_admin?
-    number = self.available_invites if number == :all
-    new_invites = self.available_invites - number
-    new_invites = 0 if new_invites < 0
-    self.update_column(:available_invites, new_invites)
-    self.available_invites
+  # Revokes invites from a user, default = 1.
+  # Pass :all as an argument to revoke all invites.
+  def revoke_invite!(number = 1)
+    return available_invites if user_admin?
+
+    number = available_invites if number == :all
+    new_invites = available_invites - number
+    new_invites = 0 if new_invites.negative?
+    update(available_invites: new_invites)
+    available_invites
   end
 
-  # Grants a number of invites to a user.
-  def grant_invite!(number=1)
-    return self.available_invites if self.user_admin?
-    new_number = (self.available_invites + number)
-    self.update_column(:available_invites, new_number)
-    self.invites
+  def grant_invite!(number = 1)
+    return available_invites if user_admin?
+
+    new_number = (available_invites + number)
+    update(available_invites: new_number)
+    invites
   end
 
   protected
 
-    def set_inviter
-      if self.invite
-        self.inviter = self.invite.user
-      end
-    end
+  def set_inviter
+    self.inviter = invite.user if invite
+  end
 
-    def expire_invite
-      if self.invite
-        self.invite.expire!
-      end
-    end
-
+  def expire_invite
+    invite&.expire!
+  end
 end
